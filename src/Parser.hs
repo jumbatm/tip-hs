@@ -13,10 +13,21 @@ data AST = AST deriving (Show)
 parse :: String -> Maybe AST
 parse _s = Just AST
 
--- TODO: Fill in.
-instance Functor Parser
+instance Functor Parser where
+  fmap f p = Parser $ \s -> do
+    (v, s') <- runParser p s
+    return (f v, s')
 
--- TODO: Fill in.
-instance Applicative Parser
+instance Applicative Parser where
+  pure v = Parser $ \s -> Just (v, s)
+  pf <*> pv = Parser $ \s -> do
+    -- TODO: Which order should this actually be in? Unwrap f first or v? Does
+    -- it matter?
+    (f, s') <- runParser pf s
+    (v, s'') <- runParser pv s'
+    return (f v, s'')
 
-instance Monad Parser
+instance Monad Parser where
+  pv >>= pf = Parser $ \s -> do
+    (v, s') <- runParser pv s
+    runParser (pf v) s'
