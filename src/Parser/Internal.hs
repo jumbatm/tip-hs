@@ -1,4 +1,4 @@
-module Parser.Internal (parse, charP, runParser) where
+module Parser.Internal (parse, charP, stringP, runParser) where
 
 -- Our parser type. We return pairs of (the parsed object, the remaining
 -- string). We have a list as we're able to handle ambiguous grammars and
@@ -40,3 +40,6 @@ charP e = Parser $ f
       | c == e = Just (c, cs)
       | otherwise = Nothing
     f [] = Nothing
+
+stringP :: String -> Parser String
+stringP = sequenceA . fmap charP
