@@ -3,7 +3,9 @@ module Parser (parse) where
 -- Our parser type. We return pairs of (the parsed object, the remaining
 -- string). We have a list as we're able to handle ambiguous grammars and
 -- return all possible parse trees.
-newtype Parser a = Parser (String -> [(a, String)])
+newtype Parser a = Parser
+  { runParser :: String -> Maybe (a, String)
+  }
 
 data AST = AST deriving (Show)
 
