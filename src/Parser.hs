@@ -31,3 +31,12 @@ instance Monad Parser where
   pv >>= pf = Parser $ \s -> do
     (v, s') <- runParser pv s
     runParser (pf v) s'
+
+charP :: Char -> Parser Char
+charP e = Parser $ f
+  where
+    f :: String -> Maybe (Char, String)
+    f (c : cs)
+      | c == e = Just (c, cs)
+      | otherwise = Nothing
+    f [] = Nothing
