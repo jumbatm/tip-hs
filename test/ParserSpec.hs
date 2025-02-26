@@ -14,3 +14,9 @@ spec = do
   describe "charP" $ do
     prop "parses its character properly" $ do
       prop_char_parsed
+
+  describe "stringP" $ do
+    it "parses a valid sequence properly" $ do
+      runParser (stringP "foo") "foobar" `shouldBe` Just ("foo", "bar")
+    it "rejects an invalid sequence" $ do
+      runParser (stringP "abc") "defghi" `shouldBe` Nothing
