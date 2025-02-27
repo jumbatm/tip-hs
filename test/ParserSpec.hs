@@ -1,5 +1,6 @@
 module ParserSpec (spec) where
 
+import Control.Applicative
 import Data.Maybe (isNothing)
 import Parser.Internal
 import Test.Hspec
@@ -28,3 +29,11 @@ spec = do
       runParser (stringP "baz" <|> stringP "bar") "barfoo" `shouldBe` Just ("bar", "foo")
     it "returns Nothing if both parsers fail" $ do
       runParser (stringP "foo" <|> stringP "bar") "bazqux" `shouldBe` Nothing
+
+  describe "spanP" $ do
+    it "correctly splits string starting with chars which satisfy the predicate" $ do
+      runParser (spanP (== 'a')) "aaabbb" `shouldBe` Just ("aaa", "bbb")
+    it "correctly consumes nothing if no chars satisfy the predicate" $ do
+      runParser (spanP (== 'a')) "bbbccc" `shouldBe` Just ("", "bbbccc")
+    it "correctly consumes nothing if matching chars not at start" $ do
+      runParser (spanP (== 'a')) "bbbaaa" `shouldBe` Just ("", "bbbaaa")
