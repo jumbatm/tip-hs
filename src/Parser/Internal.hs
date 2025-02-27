@@ -1,4 +1,4 @@
-module Parser.Internal (parse, charP, stringP, spanP, runParser) where
+module Parser.Internal (parse, charP, stringP, spanP, identifierP, runParser, AST (..)) where
 
 import Control.Applicative
 import Data.Char
@@ -10,11 +10,13 @@ newtype Parser a = Parser
   { runParser :: String -> Maybe (a, String)
   }
 
-data AST = AST deriving (Show)
+data AST = Identifier String deriving (Show, Eq)
 
 -- Actual function we export.
 parse :: String -> Maybe AST
-parse _s = Just AST
+parse s = do
+  (ast, rest) <- runParser tipProgramP s
+  if null rest then Just ast else Nothing
 
 instance Functor Parser where
   fmap f p = Parser $ \s -> do
@@ -62,3 +64,14 @@ predP p = Parser f
 
 spanP :: (Char -> Bool) -> Parser String
 spanP = many . predP
+
+-- TIP Parsing.
+
+tipProgramP :: Parser AST
+tipProgramP = identifierP
+
+identifierP :: Parser AST
+identifierP = do
+  i <- predP isAlpha
+  is <- spanP (\x -> isDigit x || isAlpha x)
+  return $ Identifier $ i : is
