@@ -1,6 +1,7 @@
-module Parser.Internal (parse, charP, stringP, runParser) where
+module Parser.Internal (parse, charP, stringP, spanP, runParser) where
 
 import Control.Applicative
+import Data.Char
 
 -- Our parser type. We return pairs of (the parsed object, the remaining
 -- string). We have a list as we're able to handle ambiguous grammars and
@@ -49,3 +50,15 @@ charP e = Parser $ f
 
 stringP :: String -> Parser String
 stringP = sequenceA . fmap charP
+
+predP :: (Char -> Bool) -> Parser Char
+predP p = Parser f
+  where
+    f :: String -> Maybe (Char, String)
+    f [] = Nothing
+    f (c : cs)
+      | p c = Just (c, cs)
+      | otherwise = Nothing
+
+spanP :: (Char -> Bool) -> Parser String
+spanP = many . predP
