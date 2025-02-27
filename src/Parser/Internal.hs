@@ -1,5 +1,7 @@
 module Parser.Internal (parse, charP, stringP, runParser) where
 
+import Control.Applicative
+
 -- Our parser type. We return pairs of (the parsed object, the remaining
 -- string). We have a list as we're able to handle ambiguous grammars and
 -- return all possible parse trees.
@@ -31,6 +33,10 @@ instance Monad Parser where
   pv >>= pf = Parser $ \s -> do
     (v, s') <- runParser pv s
     runParser (pf v) s'
+
+instance Alternative Parser where
+  empty = Parser $ const Nothing
+  p <|> q = Parser $ \s -> runParser p s <|> runParser q s
 
 charP :: Char -> Parser Char
 charP e = Parser $ f
