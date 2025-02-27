@@ -15,7 +15,7 @@ prop_valid_identifier :: String -> Bool
 prop_valid_identifier s =
   let r = runParser identifierP s; (i, rest) = spanValidIdentifier s
    in case s of
-        (c : _) | not $ null i -> r == Just (Identifier i, rest)
+        (c : _) | not $ null i -> r == Just (i, rest)
         _ -> isNothing r
   where
     spanValidIdentifier :: String -> (String, String)

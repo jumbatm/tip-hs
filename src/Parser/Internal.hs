@@ -10,7 +10,10 @@ newtype Parser a = Parser
   { runParser :: String -> Maybe (a, String)
   }
 
-data AST = Identifier String deriving (Show, Eq)
+data AST
+  = Identifier String
+  | Function String
+  deriving (Show, Eq)
 
 -- Actual function we export.
 parse :: String -> Maybe AST
@@ -65,13 +68,25 @@ predP p = Parser f
 spanP :: (Char -> Bool) -> Parser String
 spanP = many . predP
 
+wsP :: Parser String
+wsP = spanP isSpace
+
 -- TIP Parsing.
 
 tipProgramP :: Parser AST
-tipProgramP = identifierP
+tipProgramP = functionP
 
-identifierP :: Parser AST
+identifierP :: Parser String
 identifierP = do
   i <- predP isAlpha
   is <- spanP (\x -> isDigit x || isAlpha x)
-  return $ Identifier $ i : is
+  return $ i : is
+
+functionP :: Parser AST
+functionP = do
+  _ <- wsP
+  functionName <- identifierP
+  _ <- wsP
+  _ <- charP '('
+  _ <- charP ')'
+  return $ Function functionName
