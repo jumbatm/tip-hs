@@ -80,10 +80,7 @@ lexeme p = Parser $ \s -> do
   return (v, s2)
 
 opt :: Parser a -> Parser (Maybe a)
-opt p = Parser $ \s -> pure $
-  case runParser p s of
-    Nothing -> (Nothing, s)
-    Just (v, s') -> (Just v, s')
+opt p = Just <$> p <|> pure Nothing
 
 sepBy :: Parser a -> Parser b -> Parser [a]
 sepBy p q = (:) <$> p <*> many (q *> p) <|> pure []
