@@ -85,22 +85,8 @@ opt p = Parser $ \s -> pure $
     Nothing -> (Nothing, s)
     Just (v, s') -> (Just v, s')
 
--- FIXME: There's definitely a better way of writing this.
 sepBy :: Parser a -> Parser b -> Parser [a]
-sepBy p q = do
-  v <- p
-  vs <- ps p q
-  pure $ v:vs
-  where
-    ps :: Parser a -> Parser b -> Parser [a]
-    ps p' q' = do
-      sep <- opt q'
-      case sep of
-       Nothing -> pure []
-       Just _ -> do
-         v' <- p'
-         vs' <- ps p' q'
-         pure $ v':vs'
+sepBy p q = (:) <$> p <*> many (q *> p) <|> pure []
 
 -- TIP Parsing.
 
