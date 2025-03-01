@@ -1,7 +1,10 @@
 module Parser.Internal (parse, charP, stringP, spanP, identifierP, runParser, AST (..)) where
 
 import Control.Applicative
+import Control.Monad
 import Data.Char
+
+import Debug.Trace
 
 -- Our parser type. We return pairs of (the parsed object, the remaining
 -- string). We have a list as we're able to handle ambiguous grammars and
@@ -31,14 +34,19 @@ instance Applicative Parser where
   pf <*> pv = Parser $ \s -> do
     -- TODO: Which order should this actually be in? Unwrap f first or v? Does
     -- it matter?
-    (f, s') <- runParser pf s
-    (v, s'') <- runParser pv s'
-    return (f v, s'')
+    let s1 = dropWhile isSpace s
+    (f, s2) <- runParser pf s1
+    let s3 = dropWhile isSpace s2
+    (v, s4) <- runParser pv s3
+    return (f v, s4)
 
+-- FIXME: Could we thread the string through the context? So we don't have to
+-- keep passing it through ourselves?
 instance Monad Parser where
   pv >>= pf = Parser $ \s -> do
-    (v, s') <- runParser pv s
-    runParser (pf v) s'
+    (_, s1) <- runParser wsP s
+    (v, s2) <- runParser pv s1
+    runParser (pf v) s2
 
 instance Alternative Parser where
   empty = Parser $ const Nothing
@@ -71,6 +79,16 @@ spanP = many . predP
 wsP :: Parser String
 wsP = spanP isSpace
 
+guardNoTrailingWhitespace :: Parser a -> Parser a
+guardNoTrailingWhitespace p = Parser $ \s -> do
+  (v, s') <- runParser p s
+  guard $ emptyOrNonWhitespace s'
+  Just (v, s')
+  where
+    emptyOrNonWhitespace :: String -> Bool
+    emptyOrNonWhitespace (c:_) = not $ isSpace c
+    emptyOrNonWhitespace [] = True
+
 -- TIP Parsing.
 
 tipProgramP :: Parser AST
@@ -78,15 +96,13 @@ tipProgramP = functionP
 
 identifierP :: Parser String
 identifierP = do
-  i <- predP isAlpha
+  i <- guardNoTrailingWhitespace $ predP isAlpha
   is <- spanP (\x -> isDigit x || isAlpha x)
   return $ i : is
 
 functionP :: Parser AST
 functionP = do
-  _ <- wsP
   functionName <- identifierP
-  _ <- wsP
   _ <- charP '('
   _ <- charP ')'
   return $ Function functionName
