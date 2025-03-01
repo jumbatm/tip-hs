@@ -11,6 +11,8 @@ newtype Parser a = Parser
   { runParser :: String -> Maybe (a, String)
   }
 
+data TipProgram = Program [AST]
+
 data AST
   = Identifier String
   | Function String
