@@ -2,6 +2,7 @@ module Parser.Internal (parse, charP, stringP, spanP, identifierP, runParser, AS
 
 import Control.Applicative
 import Data.Char
+import Data.Maybe (fromMaybe)
 
 -- Our parser type. We return pairs of (the parsed object, the remaining
 -- string). We have a list as we're able to handle ambiguous grammars and
@@ -71,6 +72,36 @@ spanP = many . predP
 wsP :: Parser String
 wsP = spanP isSpace
 
+-- Allow any amount of whitespace after the parser.
+lexeme :: Parser a -> Parser a
+lexeme p = Parser $ \s -> do
+  (v, s1) <- runParser p s
+  (_, s2) <- runParser wsP s1
+  return (v, s2)
+
+opt :: Parser a -> Parser (Maybe a)
+opt p = Parser $ \s -> pure $
+  case runParser p s of
+    Nothing -> (Nothing, s)
+    Just (v, s') -> (Just v, s')
+
+-- FIXME: There's definitely a better way of writing this.
+sepBy :: Parser a -> Parser b -> Parser [a]
+sepBy p q = do
+  v <- p
+  vs <- ps p q
+  pure $ v:vs
+  where
+    ps :: Parser a -> Parser b -> Parser [a]
+    ps p' q' = do
+      sep <- opt q'
+      case sep of
+       Nothing -> pure []
+       Just _ -> do
+         v' <- p'
+         vs' <- ps p' q'
+         pure $ v':vs'
+
 -- TIP Parsing.
 
 tipProgramP :: Parser AST
@@ -84,9 +115,7 @@ identifierP = do
 
 functionP :: Parser AST
 functionP = do
-  _ <- wsP
-  functionName <- identifierP
-  _ <- wsP
-  _ <- charP '('
-  _ <- charP ')'
+  functionName <- lexeme identifierP
+  _ <- lexeme $ charP '('
+  _ <- lexeme $ charP ')'
   return $ Function functionName
