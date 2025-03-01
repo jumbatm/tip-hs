@@ -1,3 +1,3 @@
-module Parser (parse, AST (..)) where
+module Parser (parse, Decl (..)) where
 
 import Parser.Internal
