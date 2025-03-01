@@ -2,6 +2,7 @@ module Parser.Internal (parse, charP, stringP, spanP, identifierP, runParser, AS
 
 import Control.Applicative
 import Data.Char
+import Debug.Trace
 
 -- Our parser type. We return pairs of (the parsed object, the remaining
 -- string). We have a list as we're able to handle ambiguous grammars and
@@ -31,14 +32,19 @@ instance Applicative Parser where
   pf <*> pv = Parser $ \s -> do
     -- TODO: Which order should this actually be in? Unwrap f first or v? Does
     -- it matter?
-    (f, s') <- runParser pf s
-    (v, s'') <- runParser pv s'
-    return (f v, s'')
+    (_, s') <- runParser wsP s
+    (f, s'') <- runParser pf s'
+    (_, s''') <- runParser wsP s''
+    (v, s'''') <- runParser pv s'''
+    return (f v, s'''')
 
+-- FIXME: Could we thread the string through the context? So we don't have to
+-- keep passing it through ourselves?
 instance Monad Parser where
   pv >>= pf = Parser $ \s -> do
-    (v, s') <- runParser pv s
-    runParser (pf v) s'
+    (_, s') <- runParser wsP s
+    (v, s'') <- runParser pv s'
+    runParser (pf v) s''
 
 instance Alternative Parser where
   empty = Parser $ const Nothing
@@ -84,9 +90,7 @@ identifierP = do
 
 functionP :: Parser AST
 functionP = do
-  _ <- wsP
   functionName <- identifierP
-  _ <- wsP
   _ <- charP '('
   _ <- charP ')'
   return $ Function functionName
