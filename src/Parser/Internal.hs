@@ -1,8 +1,7 @@
-module Parser.Internal (parse, charP, stringP, spanP, identifierP, runParser, AST (..)) where
+module Parser.Internal (parse, charP, stringP, spanP, identifierP, runParser, Decl (..)) where
 
 import Control.Applicative
 import Data.Char
-import Data.Maybe (fromMaybe)
 
 -- Our parser type. We return pairs of (the parsed object, the remaining
 -- string). We have a list as we're able to handle ambiguous grammars and
@@ -11,15 +10,31 @@ newtype Parser a = Parser
   { runParser :: String -> Maybe (a, String)
   }
 
-data TipProgram = Program [AST]
+newtype TipProgram = TipProgram [Decl] deriving (Show)
 
-data AST
+data Decl
   = Identifier String
-  | Function String
+  | Function String [String] [Statement]
+  deriving (Show, Eq)
+
+data Op = Add | Subtract | Multiply | Divide | GreaterThan | Equal deriving (Show, Eq)
+
+data Statement
+  = VariableDeclaration String
+  | Output Expression
+  | If Expression [Statement] (Maybe [Statement])
+  | Return (Maybe Expression)
+  deriving (Show, Eq)
+
+data Expression
+  = Int Int
+  | Id String
+  | Binary Op Expression Expression
+  | Call Expression [Expression]
   deriving (Show, Eq)
 
 -- Actual function we export.
-parse :: String -> Maybe AST
+parse :: String -> Maybe TipProgram
 parse s = do
   (ast, rest) <- runParser tipProgramP s
   if null rest then Just ast else Nothing
@@ -76,10 +91,7 @@ wsP = spanP isSpace
 
 -- Allow any amount of whitespace after the parser.
 lexeme :: Parser a -> Parser a
-lexeme p = Parser $ \s -> do
-  (v, s1) <- runParser p s
-  (_, s2) <- runParser wsP s1
-  return (v, s2)
+lexeme p = p <* wsP
 
 opt :: Parser a -> Parser (Maybe a)
 opt p = Just <$> p <|> pure Nothing
@@ -89,8 +101,23 @@ sepBy p q = (:) <$> p <*> many (q *> p) <|> pure []
 
 -- TIP Parsing.
 
-tipProgramP :: Parser AST
-tipProgramP = functionP
+tipProgramP :: Parser TipProgram
+tipProgramP = TipProgram <$> many functionP
+
+statementP :: Parser Statement
+statementP = (variableDeclarationStmt <|> outputStmt <|> ifStmt <|> returnStmt) <* lexeme (charP ';')
+  where
+    variableDeclarationStmt :: Parser Statement
+    variableDeclarationStmt = VariableDeclaration <$> (lexeme (stringP "var") *> lexeme identifierP)
+
+    outputStmt :: Parser Statement
+    outputStmt = undefined
+
+    ifStmt :: Parser Statement
+    ifStmt = undefined
+
+    returnStmt :: Parser Statement
+    returnStmt = undefined
 
 identifierP :: Parser String
 identifierP = do
@@ -98,9 +125,12 @@ identifierP = do
   is <- spanP (\x -> isDigit x || isAlpha x)
   return $ i : is
 
-functionP :: Parser AST
+functionP :: Parser Decl
 functionP = do
   functionName <- lexeme identifierP
   _ <- lexeme $ charP '('
+  functionParams <- lexeme identifierP `sepBy` lexeme (charP ',')
   _ <- lexeme $ charP ')'
-  return $ Function functionName
+  _ <- lexeme $ charP '{'
+  _ <- lexeme $ charP '}'
+  return $ Function functionName functionParams []
