@@ -1,4 +1,4 @@
-module Parser.Internal (parse, charP, stringP, spanP, identifierP, runParser, Decl (..)) where
+module Parser.Internal (Parser, sepBy, ws, lexeme, satisfy, token, keyword, satisfyWhile, runParser) where
 
 import Control.Applicative
 import Data.Char
@@ -9,35 +9,6 @@ import Data.Char
 newtype Parser a = Parser
   { runParser :: String -> Maybe (a, String)
   }
-
-newtype TipProgram = TipProgram [Decl] deriving (Show)
-
-data Decl
-  = Identifier String
-  | Function String [String] [Statement]
-  deriving (Show, Eq)
-
-data Op = Add | Subtract | Multiply | Divide | GreaterThan | Equal deriving (Show, Eq)
-
-data Statement
-  = VariableDeclaration String
-  | Output Expression
-  | If Expression [Statement] (Maybe [Statement])
-  | Return (Maybe Expression)
-  deriving (Show, Eq)
-
-data Expression
-  = Int Int
-  | Id String
-  | Binary Op Expression Expression
-  | Call Expression [Expression]
-  deriving (Show, Eq)
-
--- Actual function we export.
-parse :: String -> Maybe TipProgram
-parse s = do
-  (ast, rest) <- runParser tipProgramP s
-  if null rest then Just ast else Nothing
 
 instance Functor Parser where
   fmap f p = Parser $ \s -> do
@@ -62,20 +33,11 @@ instance Alternative Parser where
   empty = Parser $ const Nothing
   p <|> q = Parser $ \s -> runParser p s <|> runParser q s
 
-charP :: Char -> Parser Char
-charP e = Parser $ f
-  where
-    f :: String -> Maybe (Char, String)
-    f (c : cs)
-      | c == e = Just (c, cs)
-      | otherwise = Nothing
-    f [] = Nothing
+ws :: Parser String
+ws = satisfyWhile isSpace
 
-stringP :: String -> Parser String
-stringP = sequenceA . fmap charP
-
-predP :: (Char -> Bool) -> Parser Char
-predP p = Parser f
+satisfy :: (Char -> Bool) -> Parser Char
+satisfy p = Parser f
   where
     f :: String -> Maybe (Char, String)
     f [] = Nothing
@@ -83,51 +45,24 @@ predP p = Parser f
       | p c = Just (c, cs)
       | otherwise = Nothing
 
-spanP :: (Char -> Bool) -> Parser String
-spanP = many . predP
-
-wsP :: Parser String
-wsP = spanP isSpace
-
--- Allow any amount of whitespace after the parser.
-lexeme :: Parser a -> Parser a
-lexeme p = p <* wsP
+satisfyWhile :: (Char -> Bool) -> Parser [Char]
+satisfyWhile = many . satisfy
 
 sepBy :: Parser a -> Parser b -> Parser [a]
 sepBy p q = (:) <$> p <*> many (q *> p) <|> pure []
 
--- TIP Parsing.
+-- Allow any amount of whitespace after the parser.
+lexeme :: Parser a -> Parser a
+lexeme p = p <* ws
 
-tipProgramP :: Parser TipProgram
-tipProgramP = TipProgram <$> many functionP
-
-statementP :: Parser Statement
-statementP = (variableDeclarationStmt <|> outputStmt <|> ifStmt <|> returnStmt) <* lexeme (charP ';')
+token :: Char -> Parser Char
+token e = lexeme $ Parser $ f
   where
-    variableDeclarationStmt :: Parser Statement
-    variableDeclarationStmt = VariableDeclaration <$> (lexeme (stringP "var") *> lexeme identifierP)
+    f :: String -> Maybe (Char, String)
+    f (c : cs)
+      | c == e = Just (c, cs)
+      | otherwise = Nothing
+    f [] = Nothing
 
-    outputStmt :: Parser Statement
-    outputStmt = undefined
-
-    ifStmt :: Parser Statement
-    ifStmt = undefined
-
-    returnStmt :: Parser Statement
-    returnStmt = undefined
-
-identifierP :: Parser String
-identifierP = do
-  i <- predP isAlpha
-  is <- spanP (\x -> isDigit x || isAlpha x)
-  return $ i : is
-
-functionP :: Parser Decl
-functionP = do
-  functionName <- lexeme identifierP
-  _ <- lexeme $ charP '('
-  functionParams <- lexeme identifierP `sepBy` lexeme (charP ',')
-  _ <- lexeme $ charP ')'
-  _ <- lexeme $ charP '{'
-  _ <- lexeme $ charP '}'
-  return $ Function functionName functionParams []
+keyword :: String -> Parser String
+keyword = lexeme . sequenceA . fmap token
