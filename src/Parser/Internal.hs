@@ -93,9 +93,6 @@ wsP = spanP isSpace
 lexeme :: Parser a -> Parser a
 lexeme p = p <* wsP
 
-opt :: Parser a -> Parser (Maybe a)
-opt p = Just <$> p <|> pure Nothing
-
 sepBy :: Parser a -> Parser b -> Parser [a]
 sepBy p q = (:) <$> p <*> many (q *> p) <|> pure []
 
