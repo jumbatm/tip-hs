@@ -29,13 +29,13 @@ data Expression
 
 -- TIP Parsing.
 
-tipProgramP :: Parser TipProgram
+tipProgramP :: Parser Char TipProgram
 tipProgramP = TipProgram <$> (ws *> many functionP)
 
-expressionP :: Parser Expression
+expressionP :: Parser Char Expression
 expressionP = termP
 
-termOpP :: Parser Op
+termOpP :: Parser Char Op
 termOpP =
   lexeme $
     Add <$ token '+'
@@ -43,19 +43,19 @@ termOpP =
       <|> GreaterThan <$ token '>'
       <|> Equal <$ keyword "=="
 
-factorOpP :: Parser Op
+factorOpP :: Parser Char Op
 factorOpP =
   lexeme $
     Multiply <$ token '*'
       <|> Divide <$ token '/'
 
-termP :: Parser Expression
+termP :: Parser Char Expression
 termP = ((\lhs op rhs -> Binary op lhs rhs) <$> factorP <*> termOpP <*> factorP) <|> factorP
 
-factorP' :: Parser (Maybe (Op, Expression))
+factorP' :: Parser Char (Maybe (Op, Expression))
 factorP' = optional ((\op rhs -> (op, rhs)) <$> factorOpP <*> factorP)
 
-factorP :: Parser Expression
+factorP :: Parser Char Expression
 factorP = f <$> (intP <|> idP <|> (token '(' *> expressionP <* token ')')) <*> factorP'
   where
     f :: Expression -> Maybe (Op, Expression) -> Expression
@@ -63,38 +63,38 @@ factorP = f <$> (intP <|> idP <|> (token '(' *> expressionP <* token ')')) <*> f
       Nothing -> lhs
       Just (op, rhs) -> Binary op lhs rhs
 
-intP :: Parser Expression
+intP :: Parser Char Expression
 intP = lexeme $ Int <$> read <$> ((:) <$> satisfy isDigit <*> satisfyWhile isDigit)
 
-idP :: Parser Expression
+idP :: Parser Char Expression
 idP = lexeme $ Id <$> identifierP
 
-statementP :: Parser Statement
+statementP :: Parser Char Statement
 statementP = lexeme $ (variableDeclarationP <|> outputP <|> ifP <|> returnP) <* lexeme (token ';')
 
-variableDeclarationP :: Parser Statement
+variableDeclarationP :: Parser Char Statement
 variableDeclarationP = lexeme $ VariableDeclaration <$> (lexeme (keyword "var") *> identifierP)
 
-outputP :: Parser Statement
+outputP :: Parser Char Statement
 outputP = Output <$> (keyword "output" *> expressionP)
 
-ifP :: Parser Statement
+ifP :: Parser Char Statement
 ifP = If <$> (keyword "if" *> token '(' *> expressionP <* token ')') <*> (token '{' *> many statementP <* token '}') <*> optional (keyword "else" *> token '{' *> many statementP <* token '}')
 
-returnP :: Parser Statement
+returnP :: Parser Char Statement
 returnP = Return <$> (keyword "return" *> optional expressionP)
 
-identifierP :: Parser String
+identifierP :: Parser Char String
 identifierP = do
   i <- satisfy isAlpha
   is <- satisfyWhile (\x -> isDigit x || isAlpha x)
   return $ i : is
 
-functionP :: Parser Decl
+functionP :: Parser Char Decl
 functionP = do
-  functionName <- lexeme identifierP
+  functionName <- identifierP
   _ <- token '('
-  functionParams <- lexeme identifierP `sepBy` token ','
+  functionParams <- identifierP `sepBy` token ','
   _ <- token ')'
   _ <- token '{'
   statements <- many statementP
