@@ -17,16 +17,16 @@ withSourceLocation (c:cs) = scanl go (c, SourceLocation (1, 1)) cs
 -- Our parser type. We return pairs of (the parsed object, the remaining
 -- string). We have a list as we're able to handle ambiguous grammars and
 -- return all possible parse trees.
-newtype Parser a = Parser
-  { runParser :: String -> Maybe (a, String)
+newtype Parser i o = Parser
+  { runParser :: [i] -> Maybe (o, [i])
   }
 
-instance Functor Parser where
+instance Functor (Parser i) where
   fmap f p = Parser $ \s -> do
     (v, s') <- runParser p s
     return (f v, s')
 
-instance Applicative Parser where
+instance Applicative (Parser i) where
   pure v = Parser $ \s -> Just (v, s)
   pf <*> pv = Parser $ \s -> do
     -- TODO: Which order should this actually be in? Unwrap f first or v? Does
@@ -35,47 +35,50 @@ instance Applicative Parser where
     (v, s'') <- runParser pv s'
     return (f v, s'')
 
-instance Monad Parser where
+instance Monad (Parser i) where
   pv >>= pf = Parser $ \s -> do
     (v, s') <- runParser pv s
     runParser (pf v) s'
 
-instance Alternative Parser where
+instance Alternative (Parser i) where
   empty = Parser $ const Nothing
   p <|> q = Parser $ \s -> runParser p s <|> runParser q s
 
-ws :: Parser String
-ws = satisfyWhile isSpace
 
-satisfy :: (Char -> Bool) -> Parser Char
+satisfy :: (i -> Bool) -> Parser i i
 satisfy p = Parser f
   where
-    f :: String -> Maybe (Char, String)
+    -- FIXME: Why can't I write this signature?
+    -- f :: [i] -> Maybe (i, [i])
     f [] = Nothing
     f (c : cs)
       | p c = Just (c, cs)
       | otherwise = Nothing
 
-satisfyWhile :: (Char -> Bool) -> Parser [Char]
+
+satisfyWhile :: (i -> Bool) -> Parser i [i]
 satisfyWhile = many . satisfy
 
-
-sepBy :: Parser a -> Parser b -> Parser [a]
+sepBy :: Parser i o -> Parser i o' -> Parser i [o]
 sepBy p q = (:) <$> p <*> many (q *> p) <|> pure []
 
+-- Parser on Strings.
+type CharParser a = Parser Char a
+
+ws :: CharParser [Char]
+ws = satisfyWhile isSpace
+
 -- Allow any amount of whitespace after the parser.
-lexeme :: Parser a -> Parser a
+lexeme :: CharParser a -> CharParser a
 lexeme p = p <* ws
 
-token :: Char -> Parser Char
-token e = lexeme $ Parser $ f
+token :: Char -> CharParser Char
+token e = lexeme . Parser $ f
   where
-    f :: String -> Maybe (Char, String)
     f (c : cs)
       | c == e = Just (c, cs)
       | otherwise = Nothing
     f [] = Nothing
 
-keyword :: String -> Parser String
+keyword :: String -> CharParser [Char]
 keyword = lexeme . sequenceA . fmap token
-
