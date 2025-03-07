@@ -15,12 +15,7 @@ lexeme :: (Alternative m, Monad m) => CharParser m a -> CharParser m a
 lexeme p = p <* ws
 
 token :: (Alternative m, Monad m) => Char -> CharParser m Char
-token e = lexeme . Parser $ f
-  where
-    f (c : cs)
-      | c == e = pure (c, cs)
-      | otherwise = empty
-    f [] = empty
+token e = lexeme $ satisfy (== e)
 
 keyword :: (Alternative m, Monad m) => String -> CharParser m [Char]
 keyword = lexeme . sequenceA . fmap token
