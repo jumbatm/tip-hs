@@ -3,6 +3,7 @@ module Parser.TipParser where
 import Parser.Internal
 import Control.Applicative
 import Data.Char
+import Data.Kind
 
 newtype TipProgram = TipProgram [Decl] deriving (Show)
 
@@ -30,29 +31,31 @@ data Expression
 
 -- TIP Parsing.
 
-tipProgramP :: Parser Char TipProgram
+type TipParser = Parser Maybe Char
+
+tipProgramP :: TipParser TipProgram
 tipProgramP = TipProgram <$> (ws *> many functionP)
 
-expressionP :: Parser Char Expression
+expressionP :: TipParser Expression
 expressionP = termP
 
-termOpP :: Parser Char Op
+termOpP :: TipParser Op
 termOpP = lexeme $ Add <$ token '+'
       <|> Subtract <$ token '-'
       <|> GreaterThan <$ token '>'
       <|> Equal <$ keyword "=="
 
-factorOpP :: Parser Char Op
+factorOpP :: TipParser Op
 factorOpP = lexeme $ Multiply <$ token '*'
       <|> Divide <$ token '/'
 
-termP :: Parser Char Expression
+termP :: TipParser Expression
 termP = ((\lhs op rhs -> Binary op lhs rhs) <$> factorP <*> termOpP <*> factorP) <|> factorP
 
-factorP' :: Parser Char (Maybe (Op, Expression))
+factorP' :: TipParser (Maybe (Op, Expression))
 factorP' = optional ((\op rhs -> (op, rhs)) <$> factorOpP <*> factorP)
 
-factorP :: Parser Char Expression
+factorP :: TipParser Expression
 factorP = f <$> ( intP <|> idP <|> (token '(' *> expressionP <* token ')') ) <*> factorP'
   where
     f :: Expression -> Maybe (Op, Expression) -> Expression
@@ -60,34 +63,34 @@ factorP = f <$> ( intP <|> idP <|> (token '(' *> expressionP <* token ')') ) <*>
                         Nothing -> lhs
                         Just (op, rhs) -> Binary op lhs rhs
 
-intP :: Parser Char Expression
+intP :: TipParser Expression
 intP = lexeme $ Int <$> read <$> ((:) <$> satisfy isDigit <*> satisfyWhile isDigit)
 
-idP :: Parser Char Expression
+idP :: TipParser Expression
 idP = lexeme $ Id <$> identifierP
 
-statementP :: Parser Char Statement
+statementP :: TipParser Statement
 statementP = lexeme $ (variableDeclarationP <|> outputP <|> ifP <|> returnP) <* lexeme (token ';')
 
-variableDeclarationP :: Parser Char Statement
+variableDeclarationP :: TipParser Statement
 variableDeclarationP = lexeme $ VariableDeclaration <$> (lexeme (keyword "var") *> identifierP)
 
-outputP :: Parser Char Statement
+outputP :: TipParser Statement
 outputP = Output <$> (keyword "output" *> expressionP)
 
-ifP :: Parser Char Statement
+ifP :: TipParser Statement
 ifP = If <$> (keyword "if" *> token '(' *> expressionP <* token ')') <*> (token '{' *> many statementP <* token '}') <*> optional (keyword "else" *> token '{' *> many statementP <* token '}')
 
-returnP :: Parser Char Statement
+returnP :: TipParser Statement
 returnP = Return <$> (keyword "return" *> optional expressionP)
 
-identifierP :: Parser Char String
+identifierP :: TipParser String
 identifierP = do
   i <- satisfy isAlpha
   is <- satisfyWhile (\x -> isDigit x || isAlpha x)
   return $ i : is
 
-functionP :: Parser Char Decl
+functionP :: TipParser Decl
 functionP = do
   functionName <- identifierP
   _ <- token '('
