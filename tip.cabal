@@ -27,6 +27,7 @@ library
   exposed-modules:
       Parser
       Parser.Internal
+      Parser.TipParser
   other-modules:
       Paths_tip
   autogen-modules:
