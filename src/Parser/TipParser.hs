@@ -43,7 +43,7 @@ withSourceLocation (c:cs) = scanl go (c, SourceLocation (1, 1)) cs
                   '\n' -> SourceLocation (line+1, col)
                   _ -> SourceLocation (line, col+1))
 
-type TipParser = Parser (Either SourceLocation) (Char, SourceLocation)
+type TipParser a = C.CharParser (Either SourceLocation) a
 
 tipProgramP :: TipParser TipProgram
 tipProgramP = TipProgram <$> (ws *> many functionP)

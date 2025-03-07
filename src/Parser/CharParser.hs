@@ -19,3 +19,14 @@ token e = lexeme $ satisfy (== e)
 
 keyword :: (Alternative m, Monad m) => String -> CharParser m [Char]
 keyword = lexeme . sequenceA . fmap token
+
+newtype SourceLocation = SourceLocation (Int, Int) deriving (Show)
+
+withSourceLocation :: String -> [(Char, SourceLocation)]
+withSourceLocation [] = []
+withSourceLocation (c:cs) = scanl go (c, SourceLocation (1, 1)) cs
+  where
+    go :: (Char, SourceLocation) -> Char -> (Char, SourceLocation)
+    go (_, SourceLocation (line, col)) n = (n, case n of
+                  '\n' -> SourceLocation (line+1, col)
+                  _ -> SourceLocation (line, col+1))
