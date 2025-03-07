@@ -3,13 +3,15 @@ module ParserSpec (spec) where
 import Control.Applicative
 import Data.Char
 import Data.Maybe (isNothing)
+import Parser
 import Parser.Internal
+import Parser.TipParser
 import Test.Hspec
 import Test.Hspec.QuickCheck
 
 prop_char_parsed :: Char -> String -> Bool
-prop_char_parsed e s@[] = isNothing $ runParser (charP e) s
-prop_char_parsed e s@(c : cs) = runParser (charP e) s == if e == c then Just (c, cs) else Nothing
+prop_char_parsed e s@[] = isNothing $ runParser (token e) s
+prop_char_parsed e s@(c : cs) = runParser (token e) s == if e == c then Just (c, cs) else Nothing
 
 prop_valid_identifier :: String -> Bool
 prop_valid_identifier s =
@@ -28,31 +30,31 @@ prop_valid_identifier s =
 
 spec :: Spec
 spec = do
-  describe "charP" $ do
+  describe "token" $ do
     prop "parses its character properly" $ do
       prop_char_parsed
 
-  describe "stringP" $ do
+  describe "keyword" $ do
     it "parses a valid sequence properly" $ do
-      runParser (stringP "foo") "foobar" `shouldBe` Just ("foo", "bar")
+      runParser (keyword "foo") "foobar" `shouldBe` Just ("foo", "bar")
     it "rejects an invalid sequence" $ do
-      runParser (stringP "abc") "defghi" `shouldBe` Nothing
+      runParser (keyword "abc") "defghi" `shouldBe` Nothing
 
   describe "instance Alternative Parser" $ do
     it "returns result of first parser if it's successful" $ do
-      runParser (stringP "foo" <|> stringP "bar") "barbaz" `shouldBe` Just ("bar", "baz")
+      runParser (keyword "foo" <|> keyword "bar") "barbaz" `shouldBe` Just ("bar", "baz")
     it "returns result of second parser if that's successful" $ do
-      runParser (stringP "baz" <|> stringP "bar") "barfoo" `shouldBe` Just ("bar", "foo")
+      runParser (keyword "baz" <|> keyword "bar") "barfoo" `shouldBe` Just ("bar", "foo")
     it "returns Nothing if both parsers fail" $ do
-      runParser (stringP "foo" <|> stringP "bar") "bazqux" `shouldBe` Nothing
+      runParser (keyword "foo" <|> keyword "bar") "bazqux" `shouldBe` Nothing
 
-  describe "spanP" $ do
+  describe "satisfyWhile" $ do
     it "correctly splits string starting with chars which satisfy the predicate" $ do
-      runParser (spanP (== 'a')) "aaabbb" `shouldBe` Just ("aaa", "bbb")
+      runParser (satisfyWhile (== 'a')) "aaabbb" `shouldBe` Just ("aaa", "bbb")
     it "correctly consumes nothing if no chars satisfy the predicate" $ do
-      runParser (spanP (== 'a')) "bbbccc" `shouldBe` Just ("", "bbbccc")
+      runParser (satisfyWhile (== 'a')) "bbbccc" `shouldBe` Just ("", "bbbccc")
     it "correctly consumes nothing if matching chars not at start" $ do
-      runParser (spanP (== 'a')) "bbbaaa" `shouldBe` Just ("", "bbbaaa")
+      runParser (satisfyWhile (== 'a')) "bbbaaa" `shouldBe` Just ("", "bbbaaa")
 
   describe "identifierP" $ do
     prop "only allows identifiers starting with a letter, followed by letters or numbers" $ do
