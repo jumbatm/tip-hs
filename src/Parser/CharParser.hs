@@ -4,11 +4,11 @@ import Parser.Internal
 import Control.Applicative
 import Data.Char
 
--- Parser on Strings.
-type CharParser m a = Parser m Char a
+-- Parser on Chars which tracks source locations.
+type CharParser m a = Parser m (Char, SourceLocation) (a, SourceLocation)
 
-ws :: (Alternative m, Monad m) => CharParser m [Char]
-ws = satisfyWhile isSpace
+ws :: CharParser m [Char]
+ws = satisfyWhile $ isSpace . fst
 
 -- Allow any amount of whitespace after the parser.
 lexeme :: (Alternative m, Monad m) => CharParser m a -> CharParser m a
