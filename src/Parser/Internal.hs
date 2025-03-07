@@ -3,6 +3,17 @@ module Parser.Internal (Parser, sepBy, ws, lexeme, satisfy, token, keyword, sati
 import Control.Applicative
 import Data.Char
 
+newtype SourceLocation = SourceLocation (Int, Int) deriving (Show)
+
+withSourceLocation :: String -> [(Char, SourceLocation)]
+withSourceLocation [] = []
+withSourceLocation (c:cs) = scanl go (c, SourceLocation (1, 1)) cs
+  where
+    go :: (Char, SourceLocation) -> Char -> (Char, SourceLocation)
+    go (_, SourceLocation (line, col)) n = (n, case n of
+                  '\n' -> SourceLocation (line+1, col)
+                  _ -> SourceLocation (line, col+1))
+
 -- Our parser type. We return pairs of (the parsed object, the remaining
 -- string). We have a list as we're able to handle ambiguous grammars and
 -- return all possible parse trees.
