@@ -1,7 +1,6 @@
-module Parser.Internal (Parser, sepBy, ws, lexeme, satisfy, token, keyword, satisfyWhile, runParser) where
+module Parser.Internal (Parser (..), sepBy, satisfy, satisfyWhile, runParser) where
 
 import Control.Applicative
-import Data.Char
 
 -- Our parser type. We return pairs of (the parsed object, the remaining
 -- string). We have a list as we're able to handle ambiguous grammars and
@@ -51,23 +50,3 @@ satisfyWhile = many . satisfy
 sepBy :: (Alternative m, Monad m) => Parser m i o -> Parser m i o' -> Parser m i [o]
 sepBy p q = (:) <$> p <*> many (q *> p) <|> pure []
 
--- Parser on Strings.
-type CharParser m a = Parser m Char a
-
-ws :: (Alternative m, Monad m) => CharParser m [Char]
-ws = satisfyWhile isSpace
-
--- Allow any amount of whitespace after the parser.
-lexeme :: (Alternative m, Monad m) => CharParser m a -> CharParser m a
-lexeme p = p <* ws
-
-token :: (Alternative m, Monad m) => Char -> CharParser m Char
-token e = lexeme . Parser $ f
-  where
-    f (c : cs)
-      | c == e = pure (c, cs)
-      | otherwise = empty
-    f [] = empty
-
-keyword :: (Alternative m, Monad m) => String -> CharParser m [Char]
-keyword = lexeme . sequenceA . fmap token

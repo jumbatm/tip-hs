@@ -1,6 +1,7 @@
 module Parser.TipParser where
 
 import Parser.Internal
+import qualified Parser.CharParser as C
 import Control.Applicative
 import Data.Char
 import Data.Kind
@@ -42,7 +43,7 @@ withSourceLocation (c:cs) = scanl go (c, SourceLocation (1, 1)) cs
                   '\n' -> SourceLocation (line+1, col)
                   _ -> SourceLocation (line, col+1))
 
-type TipParser = Parser (Either SourceLocation) Char
+type TipParser = Parser (Either SourceLocation) (Char, SourceLocation)
 
 tipProgramP :: TipParser TipProgram
 tipProgramP = TipProgram <$> (ws *> many functionP)
