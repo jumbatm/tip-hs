@@ -31,7 +31,18 @@ data Expression
 
 -- TIP Parsing.
 
-type TipParser = Parser Maybe Char
+newtype SourceLocation = SourceLocation (Int, Int) deriving (Show)
+
+withSourceLocation :: String -> [(Char, SourceLocation)]
+withSourceLocation [] = []
+withSourceLocation (c:cs) = scanl go (c, SourceLocation (1, 1)) cs
+  where
+    go :: (Char, SourceLocation) -> Char -> (Char, SourceLocation)
+    go (_, SourceLocation (line, col)) n = (n, case n of
+                  '\n' -> SourceLocation (line+1, col)
+                  _ -> SourceLocation (line, col+1))
+
+type TipParser = Parser (Either SourceLocation) Char
 
 tipProgramP :: TipParser TipProgram
 tipProgramP = TipProgram <$> (ws *> many functionP)
@@ -101,8 +112,8 @@ functionP = do
   _ <- token '}'
   return $ Function functionName functionParams statements
 
-parse :: String -> Maybe TipProgram
+parse :: String -> Either SourceLocation TipProgram
 parse s = do
   (ast, rest) <- runParser tipProgramP s
-  if null rest then Just ast else Nothing
+  if null rest then return ast else undefined
 
