@@ -8,7 +8,11 @@ import Data.Char
 type CharParser m a = Parser m (Char, SourceLocation) (a, SourceLocation)
 
 ws :: CharParser m [Char]
-ws = satisfyWhile $ isSpace . fst
+ws = do
+    charsAndLocs <- satisfyWhile $ isSpace . fst
+    let chars = map fst charsAndLocs
+    let loc = snd . head $ charsAndLocs
+    pure (chars, loc)
 
 -- Allow any amount of whitespace after the parser.
 lexeme :: (Alternative m, Monad m) => CharParser m a -> CharParser m a
