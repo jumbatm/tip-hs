@@ -1,4 +1,4 @@
-module Parser.CharParser (CharParser, ws)  where
+module Parser.CharParser (CharParser, SourceLocation(..), ws, lexeme, token, keyword, lift)  where
 
 import Parser.Internal
 import Control.Applicative

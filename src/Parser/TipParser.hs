@@ -1,10 +1,33 @@
 module Parser.TipParser where
 
 import Parser.Internal
-import qualified Parser.CharParser as C
+import Parser.CharParser
 import Control.Applicative
 import Data.Char
-import Data.Kind
+
+-- Error handling.
+data ParseResult a = ParseError SourceLocation [String] | ParseOk a deriving (Show)
+
+instance Functor ParseResult where
+  fmap f (ParseOk v) = ParseOk $ f v
+  fmap _(ParseError s m) = ParseError s m
+
+instance Applicative ParseResult where
+  pure = ParseOk
+
+  ParseError s m <*> _ = ParseError s m
+  ParseOk f <*> r = fmap f r
+
+instance Monad ParseResult where
+  ParseError s m  >>= _ = ParseError s m
+  ParseOk v >>= f = f v
+
+instance Alternative ParseResult where
+  empty = ParseError (SourceLocation (0, 0)) []
+
+  (ParseOk v) <|> _ = ParseOk v
+  (ParseError _ _) <|> (ParseOk v) = ParseOk v
+  (ParseError ls lm) <|> (ParseError _ rm) = ParseError ls (lm ++ rm)
 
 newtype TipProgram = TipProgram [Decl] deriving (Show)
 
@@ -31,22 +54,10 @@ data Expression
 
 
 -- TIP Parsing.
-
-newtype SourceLocation = SourceLocation (Int, Int) deriving (Show)
-
-withSourceLocation :: String -> [(Char, SourceLocation)]
-withSourceLocation [] = []
-withSourceLocation (c:cs) = scanl go (c, SourceLocation (1, 1)) cs
-  where
-    go :: (Char, SourceLocation) -> Char -> (Char, SourceLocation)
-    go (_, SourceLocation (line, col)) n = (n, case n of
-                  '\n' -> SourceLocation (line+1, col)
-                  _ -> SourceLocation (line, col+1))
-
-type TipParser a = C.CharParser (Either SourceLocation) a
+type TipParser a = CharParser ParseResult a
 
 tipProgramP :: TipParser TipProgram
-tipProgramP = TipProgram <$> (ws *> many functionP)
+tipProgramP = TipProgram <$> lift (ws *> many functionP)
 
 expressionP :: TipParser Expression
 expressionP = termP
