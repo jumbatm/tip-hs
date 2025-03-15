@@ -5,7 +5,10 @@ import Control.Applicative
 import Data.Char
 
 -- Parser on Chars which tracks source locations.
-type CharParser m a = Parser m (Char, SourceLocation) (a, SourceLocation)
+newtype CharParser m a = CharParser { unchar :: Parser m (Char, SourceLocation) (a, SourceLocation) }
+
+instance Monad m => Monad (CharParser m) where
+  v >>= mf = CharParser . Parser $ _
 
 newtype SourceLocation = SourceLocation (Int, Int) deriving (Show)
 
