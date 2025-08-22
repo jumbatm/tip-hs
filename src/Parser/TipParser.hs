@@ -1,4 +1,4 @@
-module Parser.TipParser where
+module Parser.TipParser (parse, TipProgram, ParseResult (..), identifierP) where
 
 import Parser.Internal
 import Control.Applicative
@@ -28,10 +28,9 @@ data Expression
   | Call Expression [Expression]
   deriving (Show, Eq)
 
-
 -- TIP Parsing.
 
-type TipParser = Parser Maybe Char
+type TipParser = Parser ParseResult Char
 
 tipProgramP :: TipParser TipProgram
 tipProgramP = TipProgram <$> (ws *> many functionP)
@@ -102,8 +101,8 @@ functionP = do
   _ <- token '}'
   return $ Function functionName functionParams statements
 
-parse :: String -> Maybe TipProgram
+parse :: String -> ParseResult TipProgram
 parse s = do
-  (ast, rest) <- runParser tipProgramP s
-  if null rest then Just ast else Nothing
+  (ast, _) <- runParser tipProgramP s
+  pure ast
 
