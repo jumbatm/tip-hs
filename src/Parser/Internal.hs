@@ -1,4 +1,4 @@
-module Parser.Internal (Parser, sepBy, ws, lexeme, satisfy, token, keyword, satisfyWhile, runParser, parseError) where
+module Parser.Internal (Parser, sepBy, ws, lexeme, satisfy, token, keyword, satisfyWhile, runParser, parseError, ParseResult (..), SourceLocation (..)) where
 
 import Control.Applicative
 import Data.Char
@@ -13,6 +13,35 @@ withSourceLocation (c:cs) = scanl go (c, SourceLocation (1, 1)) cs
     go (_, SourceLocation (line, col)) n = (n, case n of
                   '\n' -> SourceLocation (line+1, col)
                   _ -> SourceLocation (line, col+1))
+
+-- Error handling.
+
+data ParseResult a = ParseError SourceLocation [String] | ParseOk a deriving (Show)
+
+instance Functor ParseResult where
+  fmap f (ParseOk v) = ParseOk $ f v
+  fmap _(ParseError s m) = ParseError s m
+
+instance Applicative ParseResult where
+  pure = ParseOk
+
+  ParseError s m <*> _ = ParseError s m
+  ParseOk f <*> r = fmap f r
+
+instance Monad ParseResult where
+  ParseError s m  >>= _ = ParseError s m
+  ParseOk v >>= f = f v
+
+instance MonadFail ParseResult where
+  fail msg = ParseError (SourceLocation undefined) [msg]
+
+instance Alternative ParseResult where
+  empty = ParseError (SourceLocation (0, 0)) []
+
+  (ParseOk v) <|> _ = ParseOk v
+  (ParseError _ _) <|> (ParseOk v) = ParseOk v
+  (ParseError ls lm) <|> (ParseError _ rm) = ParseError ls (lm ++ rm)
+
 
 -- Our parser type. We return pairs of (the parsed object, the remaining
 -- string). We have a list as we're able to handle ambiguous grammars and
