@@ -1,4 +1,4 @@
-module Parser.Internal (Parser, sepBy, ws, lexeme, satisfy, token, keyword, satisfyWhile, runParser) where
+module Parser.Internal (Parser, sepBy, ws, lexeme, satisfy, token, keyword, satisfyWhile, runParser, parseError) where
 
 import Control.Applicative
 import Data.Char
@@ -79,6 +79,9 @@ token e = lexeme . Parser $ f
       | c == e = Just (c, cs)
       | otherwise = Nothing
     f [] = Nothing
+
+parseError :: CharParser a
+parseError = Parser $ pure Nothing
 
 keyword :: String -> CharParser [Char]
 keyword = lexeme . sequenceA . fmap token

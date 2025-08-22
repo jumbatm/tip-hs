@@ -41,6 +41,7 @@ termOpP = lexeme $ Add <$ token '+'
       <|> Subtract <$ token '-'
       <|> GreaterThan <$ token '>'
       <|> Equal <$ keyword "=="
+      <|> parseError
 
 factorOpP :: Parser Char Op
 factorOpP = lexeme $ Multiply <$ token '*'
