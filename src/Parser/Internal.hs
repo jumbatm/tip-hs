@@ -1,4 +1,4 @@
-module Parser.Internal (Parser, sepBy, ws, lexeme, satisfy, token, keyword, satisfyWhile, runParser, parseError, ParseResult (..), SourceLocation (..)) where
+module Parser.Internal (Parser, CharParser, sepBy, ws, lexeme, satisfy, token, keyword, satisfyWhile, runParser, parseError, ParseResult (..), SourceLocation (..)) where
 
 import Control.Applicative
 import Data.Char
@@ -94,7 +94,6 @@ sepBy p q = (:) <$> p <*> many (q *> p) <|> pure []
 
 -- Parser on Strings.
 type CharParser m a = Parser m Char a
-
 
 ws :: (Alternative m, Monad m) => CharParser m [Char]
 ws = satisfyWhile isSpace

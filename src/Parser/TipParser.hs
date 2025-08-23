@@ -29,7 +29,7 @@ data Expression
 
 -- TIP Parsing.
 
-type TipParser = Parser ParseResult Char
+type TipParser a = CharParser ParseResult a
 
 tipProgramP :: TipParser TipProgram
 tipProgramP = TipProgram <$> (ws *> many functionP)
