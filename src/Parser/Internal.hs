@@ -1,4 +1,4 @@
-module Parser.Internal (Parser, sepBy, ws, lexeme, satisfy, token, keyword, satisfyWhile, runParser, parseError, ParseResult (..), SourceLocation (..)) where
+module Parser.Internal (Parser, CharParser, sepBy, ws, lexeme, satisfy, token, keyword, satisfyWhile, runParser, parseError, ParseResult (..), SourceLocation (..)) where
 
 import Control.Applicative
 import Data.Char
