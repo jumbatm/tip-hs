@@ -42,7 +42,7 @@ termOpP =
       <|> Subtract <$ token '-'
       <|> GreaterThan <$ token '>'
       <|> Equal <$ keyword "=="
-      <|> parseError
+      <|> parseError "expected termOp"
 
 factorOpP :: Parser Char Op
 factorOpP =

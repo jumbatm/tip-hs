@@ -81,8 +81,8 @@ token e = lexeme . Parser $ f
       | otherwise = Nothing
     f [] = Nothing
 
-parseError :: CharParser a
-parseError = Parser $ pure Nothing
+parseError :: String -> CharParser a
+parseError msg = Parser $ pure (fail msg)
 
 keyword :: String -> CharParser [Char]
 keyword = lexeme . sequenceA . fmap token
