@@ -3,7 +3,6 @@ module Parser.TipParser (parse, TipProgram, ParseResult (..), identifierP) where
 import Parser.Internal
 import Control.Applicative
 import Data.Char
-import Data.Kind
 
 newtype TipProgram = TipProgram [Decl] deriving (Show)
 
