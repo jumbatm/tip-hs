@@ -92,6 +92,9 @@ satisfyWhile = many . satisfy
 sepBy :: (Alternative m, Monad m) => Parser m i o -> Parser m i o' -> Parser m i [o]
 sepBy p q = (:) <$> p <*> many (q *> p) <|> pure []
 
+parseError :: (MonadFail m) => String -> Parser m i o
+parseError msg = Parser $ pure (fail msg)
+
 -- Parser on Strings.
 type CharParser m a = Parser m Char a
 
@@ -109,9 +112,6 @@ token e = lexeme . Parser $ f
       | c == e = pure (c, cs)
       | otherwise = empty
     f [] = empty
-
-parseError :: (MonadFail m) => String -> CharParser m a
-parseError msg = Parser $ pure (fail msg)
 
 keyword :: (Alternative m, Monad m) => String -> CharParser m [Char]
 keyword = lexeme . sequenceA . fmap token
