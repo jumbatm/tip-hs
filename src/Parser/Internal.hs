@@ -14,6 +14,15 @@ withSourceLocation (c:cs) = scanl go (c, SourceLocation (1, 1)) cs
                   '\n' -> SourceLocation (line+1, col)
                   _ -> SourceLocation (line, col+1))
 
+-- NOTE: Don't think this function can be written. The parser is allowed to do
+-- anything for the "remaining string" bit. Suppose one could imagine a
+-- stricter design where parsers, rather than returning the new string, return
+-- an "action" instead? e.g., "Consume 5", meaning to eat 5 characters. And
+-- then that gets interpreted instead. From something like that you could do
+-- something here. Maybe something to try later...
+liftWithFirstPos :: Parser m i o -> Parser m (i, SourceLocation) (o, SourceLocation)
+liftWithFirstPos p = undefined
+
 -- Error handling.
 
 data ParseResult a = ParseError String | ParseOk a deriving (Show)
