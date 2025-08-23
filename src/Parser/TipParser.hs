@@ -31,6 +31,17 @@ data Expression
 
 type TipParser = CharParser ParseResult
 
+-- NOTE: On second thought, I think making the parser operate on (Char, Pos)
+-- makes it less flexible. Though that does seem attractive because it makes
+-- the client assign every token a position, it makes it much harder for the
+-- _parser_ to set the token position based on the token contents. For example,
+-- imagine there was "include foo.tip;", then there were new tokens which came
+-- out of that. A parser which has a "setPos" would be able to just set the
+-- position. A parser which needs to manage the token stream would have to
+-- pre-assign all of the tokens.
+--
+-- Although... that might not make it so bad...
+
 tipProgramP :: TipParser TipProgram
 tipProgramP = TipProgram <$> (ws *> many functionP)
 
