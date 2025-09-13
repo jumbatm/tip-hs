@@ -38,15 +38,15 @@ expressionP :: TipParser Expression
 expressionP = termP
 
 termOpP :: TipParser Op
-termOpP = lexeme $ Add <$ token '+'
-      <|> Subtract <$ token '-'
-      <|> GreaterThan <$ token '>'
+termOpP = lexeme $ Add <$ char '+'
+      <|> Subtract <$ char '-'
+      <|> GreaterThan <$ char '>'
       <|> Equal <$ keyword "=="
       <|> parseError "expected termOp"
 
 factorOpP :: TipParser Op
-factorOpP = lexeme $ Multiply <$ token '*'
-      <|> Divide <$ token '/'
+factorOpP = lexeme $ Multiply <$ char '*'
+      <|> Divide <$ char '/'
 
 termP :: TipParser Expression
 termP = ((\lhs op rhs -> Binary op lhs rhs) <$> factorP <*> termOpP <*> factorP) <|> factorP
@@ -55,7 +55,7 @@ factorP' :: TipParser (Maybe (Op, Expression))
 factorP' = optional ((\op rhs -> (op, rhs)) <$> factorOpP <*> factorP)
 
 factorP :: TipParser Expression
-factorP = f <$> ( intP <|> idP <|> (token '(' *> expressionP <* token ')') ) <*> factorP'
+factorP = f <$> ( intP <|> idP <|> (char '(' *> expressionP <* char ')') ) <*> factorP'
   where
     f :: Expression -> Maybe (Op, Expression) -> Expression
     f lhs op_rhs = case op_rhs of
@@ -69,7 +69,7 @@ idP :: TipParser Expression
 idP = lexeme $ Id <$> identifierP
 
 statementP :: TipParser Statement
-statementP = lexeme $ (variableDeclarationP <|> outputP <|> ifP <|> returnP) <* lexeme (token ';')
+statementP = lexeme $ (variableDeclarationP <|> outputP <|> ifP <|> returnP) <* lexeme (char ';')
 
 variableDeclarationP :: TipParser Statement
 variableDeclarationP = lexeme $ VariableDeclaration <$> (lexeme (keyword "var") *> identifierP)
@@ -78,7 +78,7 @@ outputP :: TipParser Statement
 outputP = Output <$> (keyword "output" *> expressionP)
 
 ifP :: TipParser Statement
-ifP = If <$> (keyword "if" *> token '(' *> expressionP <* token ')') <*> (token '{' *> many statementP <* token '}') <*> optional (keyword "else" *> token '{' *> many statementP <* token '}')
+ifP = If <$> (keyword "if" *> char '(' *> expressionP <* char ')') <*> (char '{' *> many statementP <* char '}') <*> optional (keyword "else" *> char '{' *> many statementP <* char '}')
 
 returnP :: TipParser Statement
 returnP = Return <$> (keyword "return" *> optional expressionP)
@@ -92,12 +92,12 @@ identifierP = do
 functionP :: TipParser Decl
 functionP = do
   functionName <- identifierP
-  _ <- token '('
-  functionParams <- identifierP `sepBy` token ','
-  _ <- token ')'
-  _ <- token '{'
+  _ <- char '('
+  functionParams <- identifierP `sepBy` char ','
+  _ <- char ')'
+  _ <- char '{'
   statements <- many statementP
-  _ <- token '}'
+  _ <- char '}'
   return $ Function functionName functionParams statements
 
 parse :: String -> ParseResult TipProgram

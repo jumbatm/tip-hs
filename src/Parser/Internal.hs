@@ -1,4 +1,4 @@
-module Parser.Internal (Parser, CharParser, sepBy, ws, lexeme, satisfy, token, keyword, satisfyWhile, runParser, parseError, ParseResult (..), SourceLocation (..)) where
+module Parser.Internal (Parser, CharParser, sepBy, ws, lexeme, satisfy, char, keyword, satisfyWhile, runParser, parseError, ParseResult (..), SourceLocation (..)) where
 
 import Control.Applicative
 import Data.Char
@@ -96,8 +96,6 @@ ws = satisfyWhile isSpace
 lexeme :: (Alternative m, Monad m) => CharParser m a -> CharParser m a
 lexeme p = p <* ws
 
-token :: (Alternative m, Monad m) => Char -> CharParser m Char
-token e = lexeme . Parser $ f
 nextChar :: (Monad m, Alternative m) => CharParser m Char
 nextChar = Parser f
   where
@@ -105,6 +103,8 @@ nextChar = Parser f
     f (c : cs) = pure (c, cs)
     f [] = empty
 
+char :: (Alternative m, Monad m) => Char -> CharParser m Char
+char e = lexeme . Parser $ f
   where
     f (c : cs)
       | c == e = pure (c, cs)
@@ -112,4 +112,4 @@ nextChar = Parser f
     f [] = empty
 
 keyword :: (Alternative m, Monad m) => String -> CharParser m [Char]
-keyword = lexeme . sequenceA . fmap token
+keyword = lexeme . sequenceA . fmap char
