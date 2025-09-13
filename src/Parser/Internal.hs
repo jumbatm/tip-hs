@@ -38,16 +38,16 @@ instance Alternative ParseResult where
 -- Our parser type. We return pairs of (the parsed object, the remaining
 -- string). We have a list as we're able to handle ambiguous grammars and
 -- return all possible parse trees.
-newtype Monad m => Parser m i o = Parser
+newtype Monad m => Parser i m o = Parser
   { runParser :: [i] -> m (o, [i])
   }
 
-instance Monad m => Functor (Parser m i) where
+instance Monad m => Functor (Parser i m) where
   fmap f p = Parser $ \s -> do
     (v, s') <- runParser p s
     return (f v, s')
 
-instance Monad m => Applicative (Parser m i) where
+instance Monad m => Applicative (Parser i m) where
   pure v = Parser $ \s -> pure (v, s)
   pf <*> pv = Parser $ \s -> do
     -- TODO: Which order should this actually be in? Unwrap f first or v? Does
@@ -56,17 +56,17 @@ instance Monad m => Applicative (Parser m i) where
     (v, s'') <- runParser pv s'
     return (f v, s'')
 
-instance Monad m => Monad (Parser m i) where
+instance Monad m => Monad (Parser i m) where
   pv >>= pf = Parser $ \s -> do
     (v, s') <- runParser pv s
     runParser (pf v) s'
 
-instance (Alternative m, Monad m) => Alternative (Parser m i) where
+instance (Alternative m, Monad m) => Alternative (Parser i m) where
   empty = Parser $ const empty
   p <|> q = Parser $ \s -> runParser p s <|> runParser q s
 
 
-satisfy :: (Alternative m, Monad m) => (i -> Bool) -> Parser m i i
+satisfy :: (Alternative m, Monad m) => (i -> Bool) -> Parser i m i
 satisfy p = Parser f
   where
     -- FIXME: Why can't I write this signature?
@@ -77,17 +77,17 @@ satisfy p = Parser f
       | otherwise = empty
 
 
-satisfyWhile :: (Alternative m, Monad m) => (i -> Bool) -> Parser m i [i]
+satisfyWhile :: (Alternative m, Monad m) => (i -> Bool) -> Parser i m [i]
 satisfyWhile = many . satisfy
 
-sepBy :: (Alternative m, Monad m) => Parser m i o -> Parser m i o' -> Parser m i [o]
+sepBy :: (Alternative m, Monad m) => Parser i m o -> Parser i m o' -> Parser i m [o]
 sepBy p q = (:) <$> p <*> many (q *> p) <|> pure []
 
-parseError :: MonadFail m => String -> Parser m i o
+parseError :: MonadFail m => String -> Parser i m o
 parseError msg = Parser $ pure (fail msg)
 
 -- Parser on Strings.
-type CharParser m a = Parser m Char a
+type CharParser = Parser Char
 
 ws :: (Alternative m, Monad m) => CharParser m [Char]
 ws = satisfyWhile isSpace
