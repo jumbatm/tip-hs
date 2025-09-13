@@ -5,15 +5,6 @@ import Data.Char
 
 newtype SourceLocation = SourceLocation (Int, Int) deriving (Show)
 
-withSourceLocation :: String -> [(Char, SourceLocation)]
-withSourceLocation [] = []
-withSourceLocation (c:cs) = scanl go (c, SourceLocation (1, 1)) cs
-  where
-    go :: (Char, SourceLocation) -> Char -> (Char, SourceLocation)
-    go (_, SourceLocation (line, col)) n = (n, case n of
-                  '\n' -> SourceLocation (line+1, col)
-                  _ -> SourceLocation (line, col+1))
-
 -- Error handling.
 
 data ParseResult a = ParseError String | ParseOk a deriving (Show, Eq)
