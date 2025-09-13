@@ -10,8 +10,8 @@ import Test.Hspec
 import Test.Hspec.QuickCheck
 
 prop_char_parsed :: Char -> String -> Bool
-prop_char_parsed e s@[] = isNothing $ runParser (token e) s
-prop_char_parsed e s@(c : cs) = runParser (token e) s == if e == c then Just (c, cs) else Nothing
+prop_char_parsed e s@[] = isNothing $ runParser (char e) s
+prop_char_parsed e s@(c : cs) = runParser (char e) s == if e == c then Just (c, cs) else Nothing
 
 prop_valid_identifier :: String -> Bool
 prop_valid_identifier s =
@@ -32,7 +32,7 @@ prop_valid_identifier s =
 
 spec :: Spec
 spec = do
-  describe "token" $ do
+  describe "char" $ do
     prop "parses its character properly" $ do
       prop_char_parsed
 
