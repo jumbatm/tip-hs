@@ -64,6 +64,12 @@ instance (Alternative m, Monad m) => Alternative (Parser i m) where
   empty = Parser $ const empty
   p <|> q = Parser $ \s -> runParser p s <|> runParser q s
 
+-- NOTE: As it turns out, a generic satisfy doesn't necessarily work out in all
+-- cases. For example, we want CharParser to be able to update its own source
+-- location automatically. However, we can't use nextChar here since it
+-- operates only on Chars, and the parsers here want `i`. Even Parsec needs to
+-- have "re-implementations" of these functions. Go figure.
+-- https://hackage.haskell.org/package/parsec-3.1.18.0/docs/src/Text.Parsec.Char.html#satisfy
 satisfy :: (Alternative m, Monad m) => (i -> Bool) -> Parser i m i
 satisfy p = Parser f
   where
