@@ -98,6 +98,13 @@ lexeme p = p <* ws
 
 token :: (Alternative m, Monad m) => Char -> CharParser m Char
 token e = lexeme . Parser $ f
+nextChar :: (Monad m, Alternative m) => CharParser m Char
+nextChar = Parser f
+  where
+    -- TODO: Automatically update source location.
+    f (c : cs) = pure (c, cs)
+    f [] = empty
+
   where
     f (c : cs)
       | c == e = pure (c, cs)
