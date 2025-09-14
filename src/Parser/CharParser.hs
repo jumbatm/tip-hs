@@ -37,3 +37,4 @@ char e = lexeme $ satisfy (== e)
 
 keyword :: (Alternative m, Monad m) => String -> CharParser m [Char]
 keyword = lexeme . sequenceA . fmap char
+
