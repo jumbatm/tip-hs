@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 module Parser.CharParser where
 
 import Parser.Internal
@@ -7,11 +8,10 @@ import Data.Char
 -- Parser on Strings.
 type CharParser = Parser Char
 
-satisfy :: (Alternative m, Monad m) => (i -> Bool) -> Parser i m i
+satisfy :: forall i. forall m. (Alternative m, Monad m) => (i -> Bool) -> Parser i m i
 satisfy p = Parser f
   where
-    -- FIXME: Why can't I write this signature?
-    -- f :: [i] -> Maybe (i, [i])
+    f :: Alternative m => [i] -> m (i, [i])
     f [] = empty
     f (c : cs)
       | p c = pure (c, cs)
