@@ -1,7 +1,6 @@
-module Parser.Internal (Parser, CharParser, sepBy, ws, lexeme, satisfy, char, keyword, satisfyWhile, runParser, parseError, ParseResult (..), SourceLocation (..)) where
+module Parser.Internal where
 
 import Control.Applicative
-import Data.Char
 
 newtype SourceLocation = SourceLocation (Int, Int) deriving (Show)
 
@@ -72,50 +71,24 @@ instance (Alternative m, Monad m) => Alternative (Parser i m) where
 -- operates only on Chars, and the parsers here want `i`. Even Parsec needs to
 -- have "re-implementations" of these functions. Go figure.
 -- https://hackage.haskell.org/package/parsec-3.1.18.0/docs/src/Text.Parsec.Char.html#satisfy
-satisfy :: (Alternative m, Monad m) => (i -> Bool) -> Parser i m i
-satisfy p = Parser f
-  where
-    -- FIXME: Why can't I write this signature?
-    -- f :: [i] -> Maybe (i, [i])
-    f [] = empty
-    f (c : cs)
-      | p c = pure (c, cs)
-      | otherwise = empty
-
-
-satisfyWhile :: (Alternative m, Monad m) => (i -> Bool) -> Parser i m [i]
-satisfyWhile = many . satisfy
+--
+-- For our case, we'll just only implement satisfy in CharParser.
+--
+-- satisfy :: (Alternative m, Monad m) => (i -> Bool) -> Parser i m i
+-- satisfy p = Parser f
+--   where
+--     -- FIXME: Why can't I write this signature?
+--     -- f :: [i] -> Maybe (i, [i])
+--     f [] = empty
+--     f (c : cs)
+--       | p c = pure (c, cs)
+--       | otherwise = empty
+--
+-- satisfyWhile :: (Alternative m, Monad m) => (i -> Bool) -> Parser i m [i]
+-- satisfyWhile = many . satisfy
 
 sepBy :: (Alternative m, Monad m) => Parser i m o -> Parser i m o' -> Parser i m [o]
 sepBy p q = (:) <$> p <*> many (q *> p) <|> pure []
 
 parseError :: MonadFail m => String -> Parser i m o
 parseError msg = Parser $ pure (fail msg)
-
--- Parser on Strings.
-type CharParser = Parser Char
-
-ws :: (Alternative m, Monad m) => CharParser m [Char]
-ws = satisfyWhile isSpace
-
--- Allow any amount of whitespace after the parser.
-lexeme :: (Alternative m, Monad m) => CharParser m a -> CharParser m a
-lexeme p = p <* ws
-
-nextChar :: (Monad m, Alternative m) => CharParser m Char
-nextChar = Parser f
-  where
-    -- TODO: Automatically update source location.
-    f (c : cs) = pure (c, cs)
-    f [] = empty
-
-char :: (Alternative m, Monad m) => Char -> CharParser m Char
-char e = lexeme . Parser $ f
-  where
-    f (c : cs)
-      | c == e = pure (c, cs)
-      | otherwise = empty
-    f [] = empty
-
-keyword :: (Alternative m, Monad m) => String -> CharParser m [Char]
-keyword = lexeme . sequenceA . fmap char

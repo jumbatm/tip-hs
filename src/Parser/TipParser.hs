@@ -1,6 +1,7 @@
-module Parser.TipParser (parse, TipProgram, ParseResult (..), identifierP) where
+module Parser.TipParser where
 
 import Parser.Internal
+import Parser.CharParser
 import Control.Applicative
 import Data.Char
 
