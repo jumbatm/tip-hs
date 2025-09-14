@@ -9,13 +9,17 @@ import Parser.TipParser
 import Test.Hspec
 import Test.Hspec.QuickCheck
 
+-- Run the parser, returning the result value and the remaining string.
+testRunParser :: (Monad m) => CharParser m o -> String -> m (o, [Char])
+testRunParser p s = (\(result, state) -> (result, getRawChars state)) <$> (unParser p) (CharParserState s (SourceLocation (1, 1)))
+
 prop_char_parsed :: Char -> String -> Bool
-prop_char_parsed e s@[] = isNothing $ runParser (char e) s
-prop_char_parsed e s@(c : cs) = runParser (char e) s == if e == c then Just (c, cs) else Nothing
+prop_char_parsed e s@[] = isNothing $ testRunParser (char e) s
+prop_char_parsed e s@(c : cs) = testRunParser (char e) s == if e == c then Just (c, dropWhile isSpace cs) else Nothing
 
 prop_valid_identifier :: String -> Bool
 prop_valid_identifier s =
-  let r = runParser identifierP s; (i, rest) = spanValidIdentifier s
+  let r = testRunParser identifierP s; (i, rest) = spanValidIdentifier s
    in case s of
         (c : _) | not $ null i -> r == ParseOk (i, rest)
         _ -> case r of
@@ -38,25 +42,25 @@ spec = do
 
   describe "keyword" $ do
     it "parses a valid sequence properly" $ do
-      runParser (keyword "foo") "foobar" `shouldBe` Just ("foo", "bar")
+      testRunParser (keyword "foo") "foobar" `shouldBe` Just ("foo", "bar")
     it "rejects an invalid sequence" $ do
-      runParser (keyword "abc") "defghi" `shouldBe` Nothing
+      testRunParser (keyword "abc") "defghi" `shouldBe` Nothing
 
   describe "instance Alternative Parser" $ do
     it "returns result of first parser if it's successful" $ do
-      runParser (keyword "foo" <|> keyword "bar") "barbaz" `shouldBe` Just ("bar", "baz")
+      testRunParser (keyword "foo" <|> keyword "bar") "barbaz" `shouldBe` Just ("bar", "baz")
     it "returns result of second parser if that's successful" $ do
-      runParser (keyword "baz" <|> keyword "bar") "barfoo" `shouldBe` Just ("bar", "foo")
+      testRunParser (keyword "baz" <|> keyword "bar") "barfoo" `shouldBe` Just ("bar", "foo")
     it "returns Nothing if both parsers fail" $ do
-      runParser (keyword "foo" <|> keyword "bar") "bazqux" `shouldBe` Nothing
+      testRunParser (keyword "foo" <|> keyword "bar") "bazqux" `shouldBe` Nothing
 
   describe "satisfyWhile" $ do
     it "correctly splits string starting with chars which satisfy the predicate" $ do
-      runParser (satisfyWhile (== 'a')) "aaabbb" `shouldBe` Just ("aaa", "bbb")
+      testRunParser (satisfyWhile (== 'a')) "aaabbb" `shouldBe` Just ("aaa", "bbb")
     it "correctly consumes nothing if no chars satisfy the predicate" $ do
-      runParser (satisfyWhile (== 'a')) "bbbccc" `shouldBe` Just ("", "bbbccc")
+      testRunParser (satisfyWhile (== 'a')) "bbbccc" `shouldBe` Just ("", "bbbccc")
     it "correctly consumes nothing if matching chars not at start" $ do
-      runParser (satisfyWhile (== 'a')) "bbbaaa" `shouldBe` Just ("", "bbbaaa")
+      testRunParser (satisfyWhile (== 'a')) "bbbaaa" `shouldBe` Just ("", "bbbaaa")
 
   describe "identifierP" $ do
     prop "only allows identifiers starting with a letter, followed by letters or numbers" $ do
