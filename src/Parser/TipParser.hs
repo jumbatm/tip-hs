@@ -107,5 +107,5 @@ functionP = do
 
 parse :: String -> ParseResult TipProgram
 parse s = do
-  (ast, _) <- runParser tipProgramP (CharParserState s (SourceLocation (1, 1)))
+  (ast, _) <- unParser tipProgramP (CharParserState s (SourceLocation (1, 1)))
   pure ast
