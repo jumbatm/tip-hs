@@ -36,8 +36,8 @@ instance Alternative ParseResult where
 -- Our parser type. We return pairs of (the parsed object, the remaining
 -- string). We have a list as we're able to handle ambiguous grammars and
 -- return all possible parse trees.
-newtype (Monad m) => Parser i m o = Parser
-  { runParser :: [i] -> m (o, [i])
+newtype (Monad m) => Parser s m o = Parser
+  { runParser :: s -> m (o, s)
   }
 
 instance (Monad m) => Functor (Parser i m) where

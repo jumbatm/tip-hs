@@ -4,16 +4,21 @@ import Control.Applicative
 import Data.Char
 import Parser.Internal
 
+data CharParserState = CharParserState {getRawChars :: [Char], getPos :: SourceLocation}
+
 -- Parser on Strings.
-type CharParser = Parser Char
+type CharParser = Parser CharParserState
 
 satisfy :: (Alternative m, Monad m) => (Char -> Bool) -> CharParser m Char
 satisfy p = Parser f
   where
-    f [] = empty
-    f (c : cs)
-      | p c = pure (c, cs) -- TODO: Update pos.
-      | otherwise = empty
+    f (CharParserState [] _) = empty
+
+-- f (CharParserState (c : cs) l) = empty
+-- = empty
+-- f (c : cs)
+--   | p c = pure (c, cs) -- TODO: Update pos.
+--   | otherwise = empty
 
 satisfyWhile :: (Alternative m, Monad m) => (Char -> Bool) -> CharParser m [Char]
 satisfyWhile = many . satisfy
@@ -29,12 +34,7 @@ nextChar :: (Monad m, Alternative m) => CharParser m Char
 nextChar = satisfy (const True)
 
 char :: (Alternative m, Monad m) => Char -> CharParser m Char
-char e = lexeme . Parser $ f
-  where
-    f (c : cs)
-      | c == e = pure (c, cs)
-      | otherwise = empty
-    f [] = empty
+char e = lexeme $ satisfy (== e)
 
 keyword :: (Alternative m, Monad m) => String -> CharParser m [Char]
 keyword = lexeme . sequenceA . fmap char
