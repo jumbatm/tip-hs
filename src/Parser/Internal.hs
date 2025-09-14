@@ -37,12 +37,12 @@ instance Alternative ParseResult where
 -- string). We have a list as we're able to handle ambiguous grammars and
 -- return all possible parse trees.
 newtype (Monad m) => Parser s m o = Parser
-  { runParser :: s -> m (o, s)
+  { unParser :: s -> m (o, s)
   }
 
 instance (Monad m) => Functor (Parser i m) where
   fmap f p = Parser $ \s -> do
-    (v, s') <- runParser p s
+    (v, s') <- unParser p s
     return (f v, s')
 
 instance (Monad m) => Applicative (Parser i m) where
@@ -50,18 +50,18 @@ instance (Monad m) => Applicative (Parser i m) where
   pf <*> pv = Parser $ \s -> do
     -- TODO: Which order should this actually be in? Unwrap f first or v? Does
     -- it matter?
-    (f, s') <- runParser pf s
-    (v, s'') <- runParser pv s'
+    (f, s') <- unParser pf s
+    (v, s'') <- unParser pv s'
     return (f v, s'')
 
 instance (Monad m) => Monad (Parser i m) where
   pv >>= pf = Parser $ \s -> do
-    (v, s') <- runParser pv s
-    runParser (pf v) s'
+    (v, s') <- unParser pv s
+    unParser (pf v) s'
 
 instance (Alternative m, Monad m) => Alternative (Parser i m) where
   empty = Parser $ const empty
-  p <|> q = Parser $ \s -> runParser p s <|> runParser q s
+  p <|> q = Parser $ \s -> unParser p s <|> unParser q s
 
 -- NOTE: As it turns out, a generic satisfy doesn't necessarily work out in all
 -- cases. For example, we want CharParser to be able to update its own source
