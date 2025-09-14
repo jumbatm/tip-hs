@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 module Parser.CharParser where
 
 import Parser.Internal
@@ -8,16 +7,15 @@ import Data.Char
 -- Parser on Strings.
 type CharParser = Parser Char
 
-satisfy :: forall i. forall m. (Alternative m, Monad m) => (i -> Bool) -> Parser i m i
+satisfy :: (Alternative m, Monad m) => (Char -> Bool) -> CharParser m Char
 satisfy p = Parser f
   where
-    f :: Alternative m => [i] -> m (i, [i])
     f [] = empty
     f (c : cs)
-      | p c = pure (c, cs)
+      | p c = pure (c, cs) -- TODO: Update pos.
       | otherwise = empty
 
-satisfyWhile :: (Alternative m, Monad m) => (i -> Bool) -> Parser i m [i]
+satisfyWhile :: (Alternative m, Monad m) => (Char -> Bool) -> CharParser m [Char]
 satisfyWhile = many . satisfy
 
 ws :: (Alternative m, Monad m) => CharParser m [Char]
@@ -28,11 +26,7 @@ lexeme :: (Alternative m, Monad m) => CharParser m a -> CharParser m a
 lexeme p = p <* ws
 
 nextChar :: (Monad m, Alternative m) => CharParser m Char
-nextChar = Parser f
-  where
-    -- TODO: Automatically update source location.
-    f (c : cs) = pure (c, cs)
-    f [] = empty
+nextChar = satisfy (const True)
 
 char :: (Alternative m, Monad m) => Char -> CharParser m Char
 char e = lexeme . Parser $ f
