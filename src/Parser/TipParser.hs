@@ -1,7 +1,8 @@
-module Parser.TipParser (parse, TipProgram, ParseResult (..), identifierP) where
+module Parser.TipParser where
 
 import Control.Applicative
 import Data.Char
+import Parser.CharParser
 import Parser.Internal
 
 newtype TipProgram = TipProgram [Decl] deriving (Show)

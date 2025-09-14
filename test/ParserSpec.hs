@@ -3,7 +3,7 @@ module ParserSpec (spec) where
 import Control.Applicative
 import Data.Char
 import Data.Maybe (isNothing)
-import Parser
+import Parser.CharParser
 import Parser.Internal
 import Parser.TipParser
 import Test.Hspec
