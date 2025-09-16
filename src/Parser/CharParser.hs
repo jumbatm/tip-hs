@@ -12,12 +12,12 @@ type CharParser = Parser CharParserState
 satisfy :: (Alternative m, Monad m) => (Char -> Bool) -> CharParser m Char
 satisfy p = Parser f
   where
-    f (CharParserState [] _) = empty
-    --f (CharParserState (c : cs) l) = empty
-    -- = empty
-    -- f (c : cs)
-    --   | p c = pure (c, cs) -- TODO: Update pos.
-    --   | otherwise = empty
+    f (CharParserState (c : cs) l) | p c = pure (c, CharParserState cs (updatePos c l))
+    f (CharParserState _ _) = empty
+
+    updatePos c (SourceLocation (line, col)) = SourceLocation $ case c of
+     '\n' -> (line+1, 1)
+     _    -> (line, col+1)
 
 satisfyWhile :: (Alternative m, Monad m) => (Char -> Bool) -> CharParser m [Char]
 satisfyWhile = many . satisfy
