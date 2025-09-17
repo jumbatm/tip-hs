@@ -9,13 +9,22 @@ data CharParserState = CharParserState {getRawChars :: [Char], getRawPos :: Sour
 -- Parser on Strings.
 type CharParser = Parser CharParserState
 
+getPos :: Monad m => CharParser m SourceLocation
+getPos = updatePos id
+
+setPos :: Monad m => SourceLocation -> CharParser m SourceLocation
+setPos = updatePos . const
+
+updatePos :: Monad m => (SourceLocation -> SourceLocation) -> CharParser m SourceLocation
+updatePos f = Parser $ \(CharParserState rawChars rawPos) -> let newPos = f rawPos in pure (newPos, CharParserState rawChars newPos)
+
 satisfy :: (Alternative m, Monad m) => (Char -> Bool) -> CharParser m Char
 satisfy p = Parser f
   where
-    f (CharParserState (c : cs) l) | p c = pure (c, CharParserState cs (updatePos c l))
+    f (CharParserState (c : cs) l) | p c = pure (c, CharParserState cs (computeNewPos c l))
     f (CharParserState _ _) = empty
 
-    updatePos c (SourceLocation (line, col)) = SourceLocation $ case c of
+    computeNewPos c (SourceLocation (line, col)) = SourceLocation $ case c of
      '\n' -> (line+1, 1)
      _    -> (line, col+1)
 
@@ -37,4 +46,3 @@ char e = lexeme $ satisfy (== e)
 
 keyword :: (Alternative m, Monad m) => String -> CharParser m [Char]
 keyword = lexeme . sequenceA . fmap char
-
