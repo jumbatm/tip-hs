@@ -4,7 +4,7 @@ import Control.Applicative
 import Data.Char
 import Parser.Internal
 
-data CharParserState = CharParserState {getRawChars :: [Char], getPos :: SourceLocation}
+data CharParserState = CharParserState {getRawChars :: [Char], getRawPos :: SourceLocation} deriving Show
 
 -- Parser on Strings.
 type CharParser = Parser CharParserState
