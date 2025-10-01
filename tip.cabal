@@ -27,6 +27,7 @@ library
   exposed-modules:
       Parser
       Parser.CharParser
+      Parser.Fix
       Parser.Internal
       Parser.TipParser
   other-modules:
