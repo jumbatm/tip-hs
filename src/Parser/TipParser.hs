@@ -1,32 +1,35 @@
+{-# LANGUAGE DeriveFunctor #-}
 module Parser.TipParser where
 
 import Parser.Internal
 import Parser.CharParser
 import Control.Applicative
+import Parser.Fix
 import Data.Char
 
 newtype TipProgram = TipProgram [Decl] deriving (Show)
 
-data Decl
-  = Identifier String
-  | Function String [String] [Statement]
-  deriving (Show, Eq)
+data Decl = Function String [String] [Statement] deriving Show
 
 data Op = Add | Subtract | Multiply | Divide | GreaterThan | Equal deriving (Show, Eq)
 
-data Statement
+data StatementF a
   = VariableDeclaration String
   | Output Expression
-  | If Expression [Statement] (Maybe [Statement])
+  | If Expression [a] (Maybe [a])
   | Return (Maybe Expression)
-  deriving (Show, Eq)
+  deriving (Show, Eq, Functor)
 
-data Expression
+type Statement = Fix StatementF
+
+data ExpressionF a
   = Int Int
   | Id String
-  | Binary Op Expression Expression
-  | Call Expression [Expression]
-  deriving (Show, Eq)
+  | Binary Op a a
+  | Call a [a]
+  deriving (Show, Eq, Functor)
+
+type Expression = Fix ExpressionF
 
 -- TIP Parsing.
 
@@ -50,7 +53,7 @@ factorOpP = lexeme $ Multiply <$ char '*'
       <|> Divide <$ char '/'
 
 termP :: TipParser Expression
-termP = ((\lhs op rhs -> Binary op lhs rhs) <$> factorP <*> termOpP <*> factorP) <|> factorP
+termP = ((\lhs op rhs -> Fix $ Binary op lhs rhs) <$> factorP <*> termOpP <*> factorP) <|> factorP
 
 factorP' :: TipParser (Maybe (Op, Expression))
 factorP' = optional ((\op rhs -> (op, rhs)) <$> factorOpP <*> factorP)
@@ -61,28 +64,34 @@ factorP = f <$> ( intP <|> idP <|> (char '(' *> expressionP <* char ')') ) <*> f
     f :: Expression -> Maybe (Op, Expression) -> Expression
     f lhs op_rhs = case op_rhs of
                         Nothing -> lhs
-                        Just (op, rhs) -> Binary op lhs rhs
+                        Just (op, rhs) -> Fix $ Binary op lhs rhs
 
 intP :: TipParser Expression
-intP = lexeme $ Int <$> read <$> ((:) <$> satisfy isDigit <*> satisfyWhile isDigit)
+intP = lexeme $ (Fix . Int) <$> read <$> ((:) <$> satisfy isDigit <*> satisfyWhile isDigit)
 
 idP :: TipParser Expression
-idP = lexeme $ Id <$> identifierP
+idP = lexeme $ (Fix . Id) <$> identifierP
 
 statementP :: TipParser Statement
 statementP = lexeme $ (variableDeclarationP <|> outputP <|> ifP <|> returnP) <* lexeme (char ';')
 
 variableDeclarationP :: TipParser Statement
-variableDeclarationP = lexeme $ VariableDeclaration <$> (lexeme (keyword "var") *> identifierP)
+variableDeclarationP = lexeme $ Fix . VariableDeclaration <$> (lexeme (keyword "var") *> identifierP)
 
 outputP :: TipParser Statement
-outputP = Output <$> (keyword "output" *> expressionP)
+outputP = Fix . Output <$> (keyword "output" *> expressionP)
 
 ifP :: TipParser Statement
-ifP = If <$> (keyword "if" *> char '(' *> expressionP <* char ')') <*> (char '{' *> many statementP <* char '}') <*> optional (keyword "else" *> char '{' *> many statementP <* char '}')
+ifP = Fix <$> (If <$> (keyword "if" *> char '(' *> expressionP <* char ')') <*> (char '{' *> many statementP <* char '}') <*> optional (keyword "else" *> char '{' *> many statementP <* char '}'))
+-- NOTE: fmap needed to get the Fix inside the Parser's context. Just putting
+-- "Fix . If" wraps the whole parser in Fix.
+--
+-- The difference for this rule vs the others is that the others only take 1
+-- parameter, so composing with Fix has the same effect as fmapping Fix into
+-- it. Try it -- hlint will warn about a redundant <$>.
 
 returnP :: TipParser Statement
-returnP = Return <$> (keyword "return" *> optional expressionP)
+returnP = Fix . Return <$> (keyword "return" *> optional expressionP)
 
 identifierP :: TipParser String
 identifierP = do
