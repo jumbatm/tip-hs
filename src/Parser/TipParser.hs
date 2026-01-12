@@ -2,6 +2,7 @@ module Parser.TipParser where
 
 import Control.Applicative
 import Data.Char
+import Data.Functor (($>))
 import Parser.CharParser
 import Parser.Internal
 
@@ -38,7 +39,7 @@ annotateLoc :: TipParser a -> TipParser (Located a)
 annotateLoc p = Located <$> getPos <*> p
 
 tipProgramP :: TipParser TipProgram
-tipProgramP = TipProgram <$> (ws *> many (annotateLoc functionP))
+tipProgramP = TipProgram <$> (ws *> some (annotateLoc functionP))
 
 expressionP :: TipParser Expression
 expressionP = termP
@@ -97,7 +98,7 @@ identifierP :: TipParser String
 identifierP = (:) <$> satisfy isAlpha <*> satisfyWhile (\x -> isDigit x || isAlpha x)
 
 functionP :: TipParser Decl
-functionP = (Function <$> identifierP <*> (char '(' *> (identifierP `sepBy` char ',') <* char ')') <*> (char '{' *> many (annotateLoc statementP) <* char '}'))
+functionP = (Function <$> identifierP <*> (char '(' *> (identifierP `sepBy` char ',') <* char ')') <*> (char '{' *> many (annotateLoc statementP) <* char '}')) <|> parseError "expected function"
 
 runParser :: TipParser a -> String -> ParseResult (a, CharParserState)
 runParser p s = unParser p (CharParserState s (SourceLocation (1, 1)))

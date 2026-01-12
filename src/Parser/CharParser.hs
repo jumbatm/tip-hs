@@ -46,3 +46,6 @@ char e = lexeme $ satisfy (== e)
 
 keyword :: (Alternative m, Monad m) => String -> CharParser m [Char]
 keyword = lexeme . sequenceA . fmap char
+
+eof :: (Alternative m, MonadFail m) => CharParser m ()
+eof = (nextChar *> parseError "expected end of file") <|> pure ()
