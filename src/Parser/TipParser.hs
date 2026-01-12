@@ -89,10 +89,7 @@ returnP :: TipParser Statement
 returnP = Return <$> (keyword "return" *> optional expressionP)
 
 identifierP :: TipParser String
-identifierP = do
-  i <- satisfy isAlpha
-  is <- satisfyWhile (\x -> isDigit x || isAlpha x)
-  return $ i : is
+identifierP = (:) <$> satisfy isAlpha <*> satisfyWhile (\x -> isDigit x || isAlpha x)
 
 functionP :: TipParser Decl
 functionP = Function <$> identifierP <*> (char '(' *> (identifierP `sepBy` char ',') <* char ')') <*> (char '{' *> many statementP <* char '}')
