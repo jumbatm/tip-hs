@@ -95,15 +95,7 @@ identifierP = do
   return $ i : is
 
 functionP :: TipParser Decl
-functionP = do
-  functionName <- identifierP
-  _ <- char '('
-  functionParams <- identifierP `sepBy` char ','
-  _ <- char ')'
-  _ <- char '{'
-  statements <- many statementP
-  _ <- char '}'
-  return $ Function functionName functionParams statements
+functionP = Function <$> identifierP <*> (char '(' *> (identifierP `sepBy` char ',') <* char ')') <*> (char '{' *> many statementP <* char '}')
 
 parse :: String -> ParseResult TipProgram
 parse s = do
