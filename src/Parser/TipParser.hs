@@ -54,10 +54,10 @@ factorOpP =
       <|> Divide <$ char '/'
 
 termP :: TipParser Expression
-termP = ((\lhs op rhs -> Binary op lhs rhs) <$> factorP <*> termOpP <*> factorP) <|> factorP
+termP = (flip Binary <$> factorP <*> termOpP <*> factorP) <|> factorP
 
 factorP' :: TipParser (Maybe (Op, Expression))
-factorP' = optional ((\op rhs -> (op, rhs)) <$> factorOpP <*> factorP)
+factorP' = optional ((,) <$> factorOpP <*> factorP)
 
 factorP :: TipParser Expression
 factorP = f <$> (intP <|> idP <|> (char '(' *> expressionP <* char ')')) <*> factorP'
@@ -68,7 +68,7 @@ factorP = f <$> (intP <|> idP <|> (char '(' *> expressionP <* char ')')) <*> fac
       Just (op, rhs) -> Binary op lhs rhs
 
 intP :: TipParser Expression
-intP = lexeme $ Int <$> read <$> ((:) <$> satisfy isDigit <*> satisfyWhile isDigit)
+intP = lexeme (Int . read <$> ((:) <$> satisfy isDigit <*> satisfyWhile isDigit))
 
 idP :: TipParser Expression
 idP = lexeme $ Id <$> identifierP
