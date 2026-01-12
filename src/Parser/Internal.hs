@@ -2,7 +2,7 @@ module Parser.Internal where
 
 import Control.Applicative
 
-newtype SourceLocation = SourceLocation (Int, Int) deriving (Show)
+newtype SourceLocation = SourceLocation (Int, Int) deriving (Show, Eq)
 
 -- Error handling.
 
