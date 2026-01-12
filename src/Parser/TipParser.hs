@@ -5,11 +5,11 @@ import Data.Char
 import Parser.CharParser
 import Parser.Internal
 
-newtype TipProgram = TipProgram [Decl] deriving (Show)
+newtype TipProgram = TipProgram [Located Decl] deriving (Show)
 
 data Decl
   = Identifier String
-  | Function String [String] [Statement]
+  | Function String [String] [Located Statement]
   deriving (Show, Eq)
 
 data Op = Add | Subtract | Multiply | Divide | GreaterThan | Equal deriving (Show, Eq)
@@ -20,6 +20,8 @@ data Statement
   | If Expression [Statement] (Maybe [Statement])
   | Return (Maybe Expression)
   deriving (Show, Eq)
+
+data Located a = Located SourceLocation a deriving (Show, Eq)
 
 data Expression
   = Int Int
@@ -32,8 +34,11 @@ data Expression
 
 type TipParser = CharParser ParseResult
 
+annotateLoc :: TipParser a -> TipParser (Located a)
+annotateLoc p = Located <$> getPos <*> p
+
 tipProgramP :: TipParser TipProgram
-tipProgramP = TipProgram <$> (ws *> many functionP)
+tipProgramP = TipProgram <$> (ws *> many (annotateLoc functionP))
 
 expressionP :: TipParser Expression
 expressionP = termP
@@ -92,7 +97,10 @@ identifierP :: TipParser String
 identifierP = (:) <$> satisfy isAlpha <*> satisfyWhile (\x -> isDigit x || isAlpha x)
 
 functionP :: TipParser Decl
-functionP = Function <$> identifierP <*> (char '(' *> (identifierP `sepBy` char ',') <* char ')') <*> (char '{' *> many statementP <* char '}')
+functionP = (Function <$> identifierP <*> (char '(' *> (identifierP `sepBy` char ',') <* char ')') <*> (char '{' *> many (annotateLoc statementP) <* char '}'))
+
+runParser :: TipParser a -> String -> ParseResult (a, CharParserState)
+runParser p s = unParser p (CharParserState s (SourceLocation (1, 1)))
 
 parse :: String -> ParseResult TipProgram
-parse s = fst <$> unParser tipProgramP (CharParserState s (SourceLocation (1, 1)))
+parse s = fst <$> runParser tipProgramP s
