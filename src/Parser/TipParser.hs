@@ -95,6 +95,4 @@ functionP :: TipParser Decl
 functionP = Function <$> identifierP <*> (char '(' *> (identifierP `sepBy` char ',') <* char ')') <*> (char '{' *> many statementP <* char '}')
 
 parse :: String -> ParseResult TipProgram
-parse s = do
-  (ast, _) <- unParser tipProgramP (CharParserState s (SourceLocation (1, 1)))
-  pure ast
+parse s = fst <$> unParser tipProgramP (CharParserState s (SourceLocation (1, 1)))
