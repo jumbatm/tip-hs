@@ -35,6 +35,11 @@ data Expression
 
 type TipParser = CharParser ParseResult
 
+eof :: TipParser ()
+eof = Parser $ \st@(CharParserState ch _) -> case ch of
+  "" -> pure ((), st)
+  _ -> ParseError "expected end of file"
+
 annotateLoc :: TipParser a -> TipParser (Located a)
 annotateLoc p = Located <$> getPos <*> p
 
