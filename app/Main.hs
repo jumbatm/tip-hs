@@ -20,7 +20,7 @@ main = do
       contents <- readFile file
       case parse contents of
         ParseOk ast -> putStrLn $ show ast
-        ParseError msg -> do
-          putStrLn $ "Parsing failure at " ++ file ++ ":" ++ msg
+        ParseError loc msg -> do
+          putStrLn $ "Parsing failure at " ++ file ++ ":" ++ (show loc) ++ ": expected " ++ (show msg)
           exitFailure
   return ()

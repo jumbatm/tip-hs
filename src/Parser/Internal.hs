@@ -1,6 +1,7 @@
 module Parser.Internal where
 
 import Control.Applicative
+import Debug.Trace
 
 newtype SourceLocation = SourceLocation (Int, Int) deriving (Show, Eq)
 
@@ -24,12 +25,14 @@ instance Monad ParseResult where
 
 instance Alternative ParseResult where
   empty = ParseError Nothing []
+  (<|>) = mergeErrors
 
-  (ParseOk v) <|> _ = ParseOk v
-  (ParseError _ _) <|> (ParseOk v) = ParseOk v
-  -- TODO: Do ParseResults even need to track their fail location? Multiple parse
-  -- Wouldn't multiple parse errors end up failing in the same spot?
-  (ParseError ll ls) <|> (ParseError _ rs) = ParseError ll (ls ++ rs)
+mergeErrors :: ParseResult a -> ParseResult a -> ParseResult a
+mergeErrors (ParseOk v) _ = ParseOk v
+mergeErrors (ParseError _ _) (ParseOk v) = ParseOk v
+-- TODO: Do ParseResults even need to track their fail location? Multiple parse
+-- Wouldn't multiple parse errors end up failing in the same spot?
+mergeErrors (ParseError ll ls) (ParseError rl rs) = ParseError (ll <|> rl) (ls ++ rs)
 
 -- Our parser type. We return pairs of (the parsed object, the remaining
 -- string). We have a list as we're able to handle ambiguous grammars and
@@ -55,11 +58,25 @@ instance (Monad m) => Applicative (Parser i m) where
 instance (Monad m) => Monad (Parser i m) where
   pv >>= pf = Parser $ \s -> do
     (v, s') <- unParser pv s
-    unParser (pf v) s'
+    -- NOTE: Not just a >>= here because we have to also lift `pf` (which
+    -- produces a Parser, not a ParseResult) _through_ ParseResult, i.e., pull
+    -- the value up and out of the context of ParseResult so it's in Parser and
+    -- we can unParser it.
+    case v of
+      ParseOk v' -> unParser (pf v') s'
+      ParseError loc msg -> pure (ParseError loc msg, s)
 
-instance (Alternative m, Monad m) => Alternative (Parser i m) where
-  empty = Parser $ const empty
-  p <|> q = Parser $ \s -> unParser p s <|> unParser q s
+instance (Monad m) => Alternative (Parser i m) where
+  empty = Parser $ \s -> pure (ParseError Nothing [], s)
+  p <|> q = Parser $ \s -> do
+    (l, ls) <- unParser p s
+    case l of
+      ParseOk v -> pure (ParseOk v, ls)
+      el@(ParseError _ _) -> do
+        (r, rs) <- unParser q s
+        case r of
+          ParseOk v -> pure (pure v, rs)
+          er@(ParseError _ _) -> pure (mergeErrors el er, s)
 
 -- NOTE: As it turns out, a generic satisfy doesn't necessarily work out in all
 -- cases. For example, we want CharParser to be able to update its own source
@@ -83,8 +100,5 @@ instance (Alternative m, Monad m) => Alternative (Parser i m) where
 -- satisfyWhile :: (Alternative m, Monad m) => (i -> Bool) -> Parser i m [i]
 -- satisfyWhile = many . satisfy
 
-sepBy :: (Alternative m, Monad m) => Parser i m o -> Parser i m o' -> Parser i m [o]
+sepBy :: (Monad m) => Parser i m o -> Parser i m o' -> Parser i m [o]
 sepBy p q = (:) <$> p <*> many (q *> p) <|> pure []
-
-parseError :: (MonadFail m) => String -> Parser i m o
-parseError msg = Parser $ pure (fail msg)

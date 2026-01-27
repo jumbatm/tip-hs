@@ -38,7 +38,7 @@ type TipParser = CharParser Identity
 
 eof :: TipParser ()
 eof = Parser $ \st@(CharParserState ch _) -> case ch of
-  "" -> pure ((), st)
+  "" -> pure (ParseOk (), st)
   _ -> pure (ParseError Nothing ["end of file"], st)
 
 annotateLoc :: TipParser a -> TipParser (Located a)
@@ -57,7 +57,6 @@ termOpP =
       <|> Subtract <$ char '-'
       <|> GreaterThan <$ char '>'
       <|> Equal <$ keyword "=="
-      <|> parseError "expected termOp"
 
 factorOpP :: TipParser Op
 factorOpP =
@@ -104,10 +103,10 @@ identifierP :: TipParser String
 identifierP = (:) <$> satisfy isAlpha <*> satisfyWhile (\x -> isDigit x || isAlpha x)
 
 functionP :: TipParser Decl
-functionP = (Function <$> identifierP <*> (char '(' *> (identifierP `sepBy` char ',') <* char ')') <*> (char '{' *> many (annotateLoc statementP) <* char '}')) <|> parseError "expected function"
+functionP = Function <$> identifierP <*> (char '(' *> (identifierP `sepBy` char ',') <* char ')') <*> (char '{' *> many (annotateLoc statementP) <* char '}')
 
-runParser :: TipParser a -> String -> ParseResult (a, CharParserState)
+runParser :: TipParser a -> String -> Identity (ParseResult a, CharParserState)
 runParser p s = unParser p (CharParserState s (SourceLocation (1, 1)))
 
 parse :: String -> ParseResult TipProgram
-parse s = fst <$> runParser tipProgramP s
+parse s = runIdentity $ fst <$> runParser tipProgramP s
