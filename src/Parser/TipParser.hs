@@ -3,6 +3,7 @@ module Parser.TipParser where
 import Control.Applicative
 import Data.Char
 import Data.Functor (($>))
+import Data.Functor.Identity
 import Parser.CharParser
 import Parser.Internal
 
@@ -33,12 +34,12 @@ data Expression
 
 -- TIP Parsing.
 
-type TipParser = CharParser ParseResult
+type TipParser = CharParser Identity
 
 eof :: TipParser ()
 eof = Parser $ \st@(CharParserState ch _) -> case ch of
   "" -> pure ((), st)
-  _ -> ParseError "expected end of file"
+  _ -> pure (ParseError Nothing ["end of file"], st)
 
 annotateLoc :: TipParser a -> TipParser (Located a)
 annotateLoc p = Located <$> getPos <*> p

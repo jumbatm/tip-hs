@@ -6,53 +6,51 @@ newtype SourceLocation = SourceLocation (Int, Int) deriving (Show, Eq)
 
 -- Error handling.
 
-data ParseResult a = ParseError String | ParseOk a deriving (Show, Eq)
+data ParseResult a = ParseError (Maybe SourceLocation) [String] | ParseOk a deriving (Show, Eq)
 
 instance Functor ParseResult where
   fmap f (ParseOk v) = ParseOk $ f v
-  fmap _ (ParseError m) = ParseError m
+  fmap _ (ParseError l s) = ParseError l s
 
 instance Applicative ParseResult where
   pure = ParseOk
 
-  ParseError m <*> _ = ParseError m
+  ParseError l s <*> _ = ParseError l s
   ParseOk f <*> r = fmap f r
 
 instance Monad ParseResult where
-  ParseError m >>= _ = ParseError m
+  ParseError l s >>= _ = ParseError l s
   ParseOk v >>= f = f v
 
-instance MonadFail ParseResult where
-  fail = ParseError
-
 instance Alternative ParseResult where
-  empty = ParseError ""
+  empty = ParseError Nothing []
 
   (ParseOk v) <|> _ = ParseOk v
-  (ParseError _) <|> (ParseOk v) = ParseOk v
-  -- Is the rightmost ParseError the right one?
-  (ParseError _) <|> (ParseError rm) = ParseError rm
+  (ParseError _ _) <|> (ParseOk v) = ParseOk v
+  -- TODO: Do ParseResults even need to track their fail location? Multiple parse
+  -- Wouldn't multiple parse errors end up failing in the same spot?
+  (ParseError ll ls) <|> (ParseError _ rs) = ParseError ll (ls ++ rs)
 
 -- Our parser type. We return pairs of (the parsed object, the remaining
 -- string). We have a list as we're able to handle ambiguous grammars and
 -- return all possible parse trees.
 newtype (Monad m) => Parser s m o = Parser
-  { unParser :: s -> m (o, s)
+  { unParser :: s -> m (ParseResult o, s)
   }
 
 instance (Monad m) => Functor (Parser i m) where
   fmap f p = Parser $ \s -> do
     (v, s') <- unParser p s
-    return (f v, s')
+    return (f <$> v, s')
 
 instance (Monad m) => Applicative (Parser i m) where
-  pure v = Parser $ \s -> pure (v, s)
+  pure v = Parser $ \s -> pure (ParseOk v, s)
   pf <*> pv = Parser $ \s -> do
     -- TODO: Which order should this actually be in? Unwrap f first or v? Does
     -- it matter?
     (f, s') <- unParser pf s
     (v, s'') <- unParser pv s'
-    return (f v, s'')
+    return (f <*> v, s'')
 
 instance (Monad m) => Monad (Parser i m) where
   pv >>= pf = Parser $ \s -> do
