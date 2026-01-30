@@ -37,9 +37,9 @@ data Expression
 type TipParser = CharParser Identity
 
 eof :: TipParser ()
-eof = Parser $ \st@(CharParserState ch _) -> case ch of
-  "" -> pure (ParseOk (), st)
-  _ -> pure (ParseError Nothing ["end of file"], st)
+eof = Parser $ \st@(CharParserState ch _) -> pure $ case ch of
+  "" -> ParseOk ((), st)
+  _ -> ParseError Nothing ["end of file"]
 
 annotateLoc :: TipParser a -> TipParser (Located a)
 annotateLoc p = Located <$> getPos <*> p
@@ -105,8 +105,8 @@ identifierP = (:) <$> satisfy isAlpha <*> satisfyWhile (\x -> isDigit x || isAlp
 functionP :: TipParser Decl
 functionP = Function <$> identifierP <*> (char '(' *> (identifierP `sepBy` char ',') <* char ')') <*> (char '{' *> many (annotateLoc statementP) <* char '}')
 
-runParser :: TipParser a -> String -> Identity (ParseResult a, CharParserState)
+runParser :: TipParser a -> String -> Identity (ParseResult (a, CharParserState))
 runParser p s = unParser p (CharParserState s (SourceLocation (1, 1)))
 
 parse :: String -> ParseResult TipProgram
-parse s = runIdentity $ fst <$> runParser tipProgramP s
+parse = (fst <$>) . runIdentity . runParser tipProgramP

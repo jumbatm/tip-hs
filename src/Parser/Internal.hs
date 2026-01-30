@@ -38,45 +38,56 @@ mergeErrors (ParseError ll ls) (ParseError rl rs) = ParseError (ll <|> rl) (ls +
 -- string). We have a list as we're able to handle ambiguous grammars and
 -- return all possible parse trees.
 newtype (Monad m) => Parser s m o = Parser
-  { unParser :: s -> m (ParseResult o, s)
+  { unParser :: s -> m (ParseResult (o, s))
   }
 
 instance (Monad m) => Functor (Parser i m) where
   fmap f p = Parser $ \s -> do
-    (v, s') <- unParser p s
-    return (f <$> v, s')
+    r <- unParser p s
+    -- TODO: There's probably a nicer way to write this which uses
+    -- ParseResult's fmap instance. Apparently there's Control.Arrow.first
+    -- which will apply a function to the first element of a tuple.
+    pure $ case r of
+      ParseOk (v, s') -> ParseOk (f v, s')
+      ParseError loc ex -> ParseError loc ex
 
 instance (Show i, Monad m) => Applicative (Parser i m) where
-  pure v = Parser $ \s -> pure (ParseOk v, s)
+  pure v = Parser $ \s -> pure $ ParseOk (v, s)
   pf <*> pv = Parser $ \s -> do
-    -- TODO: Which order should this actually be in? Unwrap f first or v? Does
-    -- it matter?
-    (f, s') <- unParser pf s
-    (v, s'') <- unParser pv (trace (show s') s')
-    return (f <*> v, s'')
+    f <- unParser pf s
+    case f of
+      -- Propagate along error.
+      ParseError loc ex -> pure $ ParseError loc ex
+      ParseOk (fv, fs) -> do
+        v <- unParser pv fs
+        case v of
+          -- Propagate along error.
+          ParseError loc ex -> pure $ ParseError loc ex
+          ParseOk (vv, vs) -> do
+            pure $ ParseOk (fv vv, vs)
 
 instance (Monad m, Show i) => Monad (Parser i m) where
   pv >>= pf = Parser $ \s -> do
-    (v, s') <- unParser pv s
+    v <- unParser pv s
     -- NOTE: Not just a >>= here because we have to also lift `pf` (which
     -- produces a Parser, not a ParseResult) _through_ ParseResult, i.e., pull
     -- the value up and out of the context of ParseResult so it's in Parser and
     -- we can unParser it.
     case v of
-      ParseOk v' -> unParser (pf v') s'
-      ParseError loc msg -> pure (ParseError loc msg, s)
+      ParseError loc msg -> pure $ ParseError loc msg
+      ParseOk (vv, vs) -> unParser (pf vv) vs
 
 instance (Monad m, Show i) => Alternative (Parser i m) where
-  empty = Parser $ \s -> pure (ParseError Nothing [], s)
+  empty = Parser $ \_ -> pure $ ParseError Nothing []
   p <|> q = Parser $ \s -> do
-    (l, ls) <- unParser p s
-    case l of
-      ParseOk v -> pure (ParseOk v, ls)
+    pl <- unParser p s
+    case pl of
+      ParseOk v -> pure $ ParseOk v
       el@(ParseError _ _) -> do
-        (r, rs) <- unParser q s
-        case r of
-          ParseOk v -> pure (pure v, rs)
-          er@(ParseError _ _) -> pure (mergeErrors el er, s)
+        pr <- unParser q s
+        case pr of
+          ParseOk v -> pure $ ParseOk v
+          er@(ParseError _ _) -> pure $ mergeErrors el er
 
 -- NOTE: As it turns out, a generic satisfy doesn't necessarily work out in all
 -- cases. For example, we want CharParser to be able to update its own source
