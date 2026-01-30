@@ -46,16 +46,16 @@ instance (Monad m) => Functor (Parser i m) where
     (v, s') <- unParser p s
     return (f <$> v, s')
 
-instance (Monad m) => Applicative (Parser i m) where
+instance (Show i, Monad m) => Applicative (Parser i m) where
   pure v = Parser $ \s -> pure (ParseOk v, s)
   pf <*> pv = Parser $ \s -> do
     -- TODO: Which order should this actually be in? Unwrap f first or v? Does
     -- it matter?
     (f, s') <- unParser pf s
-    (v, s'') <- unParser pv s'
+    (v, s'') <- unParser pv (trace (show s') s')
     return (f <*> v, s'')
 
-instance (Monad m) => Monad (Parser i m) where
+instance (Monad m, Show i) => Monad (Parser i m) where
   pv >>= pf = Parser $ \s -> do
     (v, s') <- unParser pv s
     -- NOTE: Not just a >>= here because we have to also lift `pf` (which
@@ -66,7 +66,7 @@ instance (Monad m) => Monad (Parser i m) where
       ParseOk v' -> unParser (pf v') s'
       ParseError loc msg -> pure (ParseError loc msg, s)
 
-instance (Monad m) => Alternative (Parser i m) where
+instance (Monad m, Show i) => Alternative (Parser i m) where
   empty = Parser $ \s -> pure (ParseError Nothing [], s)
   p <|> q = Parser $ \s -> do
     (l, ls) <- unParser p s
@@ -100,5 +100,5 @@ instance (Monad m) => Alternative (Parser i m) where
 -- satisfyWhile :: (Alternative m, Monad m) => (i -> Bool) -> Parser i m [i]
 -- satisfyWhile = many . satisfy
 
-sepBy :: (Monad m) => Parser i m o -> Parser i m o' -> Parser i m [o]
+sepBy :: (Show i, Monad m) => Parser i m o -> Parser i m o' -> Parser i m [o]
 sepBy p q = (:) <$> p <*> many (q *> p) <|> pure []
