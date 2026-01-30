@@ -16,13 +16,13 @@ setPos :: (Monad m) => SourceLocation -> CharParser m SourceLocation
 setPos = updatePos . const
 
 updatePos :: (Monad m) => (SourceLocation -> SourceLocation) -> CharParser m SourceLocation
-updatePos f = Parser $ \(CharParserState rawChars rawPos) -> let newPos = f rawPos in pure (ParseOk newPos, CharParserState rawChars newPos)
+updatePos f = Parser $ \(CharParserState rawChars rawPos) -> let newPos = f rawPos in pure $ ParseOk (newPos, CharParserState rawChars newPos)
 
 satisfy :: (Monad m) => (Char -> Bool) -> CharParser m Char
 satisfy p = Parser f
   where
-    f (CharParserState (c : cs) l) | p c = pure (ParseOk c, CharParserState cs (computeNewPos c l))
-    f c@(CharParserState _ pos) = pure (ParseError (Just pos) [], c)
+    f (CharParserState (c : cs) l) | p c = pure $ ParseOk (c, CharParserState cs (computeNewPos c l))
+    f (CharParserState _ pos) = pure $ ParseError (Just pos) []
 
     computeNewPos c (SourceLocation (line, col)) = SourceLocation $ case c of
       '\n' -> (line + 1, 1)
@@ -43,10 +43,10 @@ nextChar = satisfy (const True)
 
 label :: (Monad m) => String -> CharParser m a -> CharParser m a
 label msg parser = Parser $ \s -> do
-  (x, i) <- unParser parser s
-  case x of
-    ParseOk v -> pure (pure v, i)
-    ParseError loc _ -> pure (ParseError loc [msg], s)
+  r <- unParser parser s
+  pure $ case r of
+    ParseError loc _ -> ParseError loc [msg]
+    ParseOk v -> ParseOk v
 
 -- Label operator.
 (<?>) :: (Monad m) => CharParser m a -> String -> CharParser m a
