@@ -23,7 +23,7 @@ testError (ParseError _ _) = True
 testError (ParseOk _) = False
 
 prop_char_parsed :: Char -> String -> Bool
-prop_char_parsed e s@[] = testError $ testRunParser (char e) s
+prop_char_parsed e s@[] = testRunParser (char e) s == ParseError (Just $ SourceLocation (1, 1)) [[e]]
 prop_char_parsed e s@(c : cs) = test $ testRunParser (char e) s
   where
     test p | c == e = p == ParseOk (c, dropWhile isSpace cs)
@@ -49,6 +49,10 @@ prop_valid_identifier s =
 spec :: Spec
 spec = do
   describe "char" $ do
+    it "matches a simple positive case" $ do
+      testRunParser (char 'a') "abc" `shouldBe` ParseOk ('a', "bc")
+    it "rejects a simple negative case" $ do
+      testRunParser (char 'a') "cba" `shouldBe` ParseError (Just $ SourceLocation (1, 1)) ["a"]
     prop "parses its character properly" $ do
       prop_char_parsed
 

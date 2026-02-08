@@ -55,7 +55,9 @@ label msg parser = Parser $ \s -> do
 infixl 2 <?>
 
 char :: (Monad m) => Char -> CharParser m Char
-char e = lexeme $ satisfy (== e)
+char e = lexeme $ satisfy (== e) <?> [e]
 
 keyword :: (Monad m) => String -> CharParser m [Char]
-keyword = lexeme . sequenceA . fmap char
+keyword w = lexeme $ traverse char w <?> w
+
+-- traverse f w = sequenceA $ fmap f w
