@@ -79,7 +79,7 @@ factorP = f <$> (intP <|> idP <|> (char '(' *> expressionP <* char ')')) <*> fac
       Just (op, rhs) -> Binary op lhs rhs
 
 intP :: TipParser Expression
-intP = lexeme (Int . read <$> ((:) <$> satisfy isDigit <*> satisfyWhile isDigit))
+intP = lexeme (Int . read <$> ((:) <$> satisfy isDigit <*> satisfyWhile isDigit)) <?> "an integer"
 
 idP :: TipParser Expression
 idP = lexeme $ Id <$> identifierP
@@ -100,7 +100,7 @@ returnP :: TipParser Statement
 returnP = Return <$> (keyword "return" *> optional expressionP)
 
 identifierP :: TipParser String
-identifierP = (:) <$> satisfy isAlpha <*> satisfyWhile (\x -> isDigit x || isAlpha x)
+identifierP = (:) <$> satisfy isAlpha <*> satisfyWhile (\x -> isDigit x || isAlpha x) <?> "an identifier"
 
 functionP :: TipParser Decl
 functionP = Function <$> identifierP <*> (char '(' *> (identifierP `sepBy` char ',') <* char ')') <*> (char '{' *> many (annotateLoc statementP) <* char '}')
