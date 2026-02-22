@@ -1,13 +1,13 @@
 module Parser.Internal where
 
 import Control.Applicative
-import Debug.Trace
+import Data.Set as S
 
 newtype SourceLocation = SourceLocation (Int, Int) deriving (Show, Eq)
 
 -- Error handling.
 
-data ParseResult a = ParseError (Maybe SourceLocation) [String] | ParseOk a deriving (Show, Eq)
+data ParseResult a = ParseError (Maybe SourceLocation) (Set String) | ParseOk a deriving (Show, Eq)
 
 instance Functor ParseResult where
   fmap f (ParseOk v) = ParseOk $ f v
@@ -24,7 +24,7 @@ instance Monad ParseResult where
   ParseOk v >>= f = f v
 
 instance Alternative ParseResult where
-  empty = ParseError Nothing []
+  empty = ParseError Nothing S.empty
   (<|>) = mergeErrors
 
 mergeErrors :: ParseResult a -> ParseResult a -> ParseResult a
@@ -32,7 +32,7 @@ mergeErrors (ParseOk v) _ = ParseOk v
 mergeErrors (ParseError _ _) (ParseOk v) = ParseOk v
 -- TODO: Do ParseResults even need to track their fail location? Multiple parse
 -- Wouldn't multiple parse errors end up failing in the same spot?
-mergeErrors (ParseError ll ls) (ParseError rl rs) = ParseError (ll <|> rl) (ls ++ rs)
+mergeErrors (ParseError ll ls) (ParseError rl rs) = ParseError (ll <|> rl) (S.union ls rs)
 
 -- Our parser type. We return pairs of (the parsed object, the remaining
 -- string). We have a list as we're able to handle ambiguous grammars and
@@ -78,7 +78,7 @@ instance (Monad m, Show i) => Monad (Parser i m) where
       ParseOk (vv, vs) -> unParser (pf vv) vs
 
 instance (Monad m, Show i) => Alternative (Parser i m) where
-  empty = Parser $ \_ -> pure $ ParseError Nothing []
+  empty = Parser $ \_ -> pure $ ParseError Nothing S.empty
   p <|> q = Parser $ \s -> do
     pl <- unParser p s
     case pl of
