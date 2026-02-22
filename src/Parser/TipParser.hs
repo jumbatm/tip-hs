@@ -4,6 +4,7 @@ import Control.Applicative
 import Data.Char
 import Data.Functor (($>))
 import Data.Functor.Identity
+import Data.Set
 import Parser.CharParser
 import Parser.Internal
 
@@ -39,7 +40,7 @@ type TipParser = CharParser Identity
 eof :: TipParser ()
 eof = Parser $ \st@(CharParserState ch _) -> pure $ case ch of
   "" -> ParseOk ((), st)
-  _ -> ParseError Nothing ["end of file"]
+  _ -> ParseError Nothing (singleton "end of file")
 
 annotateLoc :: TipParser a -> TipParser (Located a)
 annotateLoc p = Located <$> getPos <*> p
