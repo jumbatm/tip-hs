@@ -5,7 +5,7 @@ import Data.Char
 import Data.Functor.Identity
 import Data.Maybe (isNothing)
 import Data.Set as S
-import Parser.CharParser
+import Parser.CharParser (CharParser, CharParserState (CharParserState), getRawChars, satisfyWhile)
 import Parser.Internal
 import Parser.TipParser
 import Test.Hspec
