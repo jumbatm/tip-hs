@@ -58,6 +58,9 @@ infixl 2 <?>
 char :: (Monad m) => Char -> CharParser m Char
 char e = lexeme $ satisfy (== e) <?> [e]
 
+string :: (Monad m) => String -> Parser CharParserState m String
+string = traverse (\c -> satisfy (== c))
+
 keyword :: (Monad m) => String -> CharParser m [Char]
 keyword w = lexeme $ traverse char w <?> w
 

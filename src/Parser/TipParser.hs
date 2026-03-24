@@ -5,7 +5,7 @@ import Data.Char
 import Data.Functor (($>))
 import Data.Functor.Identity
 import Data.Set
-import Parser.CharParser
+import Parser.CharParser (CharParser, CharParserState (..), getPos, satisfy, satisfyWhile, string, (<?>))
 import Parser.Internal
 
 newtype TipProgram = TipProgram [Located Decl] deriving (Show)
@@ -32,6 +32,22 @@ data Expression
   | Binary Op Expression Expression
   | Call Expression [Expression]
   deriving (Show, Eq)
+
+lineComment :: TipParser String
+lineComment = string "//" *> (string "\\\n" <|> satisfyWhile (/= '\n'))
+
+-- Override to support lineComments as "whitespace".
+ws :: Parser CharParserState Identity [String]
+ws = many $ lineComment <|> ((: []) <$> satisfy isSpace)
+
+lexeme :: TipParser a -> CharParser Identity a
+lexeme p = p <* ws
+
+keyword :: String -> CharParser Identity [Char]
+keyword s = lexeme $ string s <?> s
+
+char :: Char -> CharParser Identity Char
+char c = lexeme $ satisfy (== c) <?> [c]
 
 -- TIP Parsing.
 
