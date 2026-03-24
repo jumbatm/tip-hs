@@ -1,0 +1,6 @@
+// XFAIL: parser completeness
+
+main(){
+r=(f)(a);
+return 1;
+}

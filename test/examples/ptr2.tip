@@ -1,0 +1,13 @@
+// XFAIL: parser completeness
+
+doubleDeref(r){
+    return **r;
+}
+
+main(){
+    var n,p,q;
+    n=17;
+    p=&n;
+    q=&p;
+    return doubleDeref(q);
+}

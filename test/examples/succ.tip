@@ -1,0 +1,5 @@
+// XFAIL: parser completeness
+
+succ(i){
+    return i+1;
+}

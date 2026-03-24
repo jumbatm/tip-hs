@@ -1,0 +1,9 @@
+// XFAIL: parser completeness
+
+main() {
+    var n, k, r1;
+    k = {f: 4};
+    n = alloc {p: 4, q: 5};
+    *n = {p: 44, q: &k};
+    return *(*n.q).f;
+}

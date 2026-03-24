@@ -1,0 +1,9 @@
+// XFAIL: parser completeness
+
+test(f,a){
+    return (*f)(a);
+}
+
+test2(g,b){
+    return (*g)(b);
+}

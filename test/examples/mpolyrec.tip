@@ -1,0 +1,12 @@
+// XFAIL: parser completeness
+
+
+foo(p){
+    return bar(p);
+}
+
+bar(q){
+    return foo(q);
+}
+
+

@@ -1,0 +1,5 @@
+// XFAIL: parser completeness
+
+equal(a,b){
+    return a==b;
+}

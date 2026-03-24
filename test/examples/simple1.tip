@@ -1,0 +1,5 @@
+// XFAIL: parser completeness
+
+f(){
+    return 1;
+}

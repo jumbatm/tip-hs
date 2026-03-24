@@ -1,0 +1,12 @@
+// XFAIL: parser completeness
+
+main() {
+  var x,y,z,a;
+  x = null;
+  y = &x;
+  z = &x;
+  z = &y;
+  a = *z;
+  *a = null;
+  return 0;
+}

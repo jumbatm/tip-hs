@@ -1,0 +1,5 @@
+// XFAIL: parser completeness
+
+poly(p,q){
+    return q;
+}
