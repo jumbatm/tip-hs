@@ -1,0 +1,5 @@
+// XFAIL: parser completeness
+
+main(x, y) {
+    return x;
+}

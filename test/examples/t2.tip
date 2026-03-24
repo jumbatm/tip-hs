@@ -1,0 +1,16 @@
+// XFAIL: parser completeness
+
+
+foo(p){
+    var f;
+    f=foo;
+    return bar(f);
+}
+
+bar(q){
+    var g;
+    g=bar;
+    return foo(g);
+}
+
+

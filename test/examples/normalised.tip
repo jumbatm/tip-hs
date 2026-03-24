@@ -1,0 +1,18 @@
+// XFAIL: parser completeness
+
+f() {
+    return 0;
+}
+
+g() {
+    var x;
+    x = f();
+    return x;
+}
+
+main() {
+    var u;
+    u = g();
+    return u;
+
+}

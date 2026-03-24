@@ -1,0 +1,8 @@
+// XFAIL: parser completeness
+
+main(){
+    var x,y;
+    x = input;
+    y = input;
+    return x/y;
+}

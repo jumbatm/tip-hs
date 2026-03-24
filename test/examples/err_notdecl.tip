@@ -1,0 +1,6 @@
+// XFAIL: parser completeness
+
+test(){
+    a = 5;
+    return a;
+}

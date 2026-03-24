@@ -1,0 +1,7 @@
+// XFAIL: parser completeness
+
+test(p){
+    var q;
+    q=3;
+    return (*p);
+}

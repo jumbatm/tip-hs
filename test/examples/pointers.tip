@@ -1,0 +1,10 @@
+// XFAIL: parser completeness
+
+main() {
+  var x, pa, pb; 
+  x = 5;
+  pa = &x;
+  pb = pa;
+  *pb = 2;
+  return x == 2;
+}
