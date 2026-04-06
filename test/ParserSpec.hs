@@ -5,7 +5,7 @@ import Data.Char
 import Data.Functor.Identity
 import Data.Maybe (isNothing)
 import Data.Set as S
-import Parser.CharParser (CharParser, CharParserState (CharParserState), getRawChars, satisfyWhile)
+import Parser.CharParser (CharParser, CharParserState (CharParserState), getRawChars, satisfyWhile, string)
 import Parser.Internal
 import Parser.TipParser
 import Test.Hspec
@@ -82,3 +82,16 @@ spec = do
   describe "identifierP" $ do
     prop "only allows identifiers starting with a letter, followed by letters or numbers" $ do
       prop_valid_identifier
+
+  describe "error handling" $ do
+    it "generates an intuitive token set for many + a parser which partially succeeded" $ do
+      -- TODO: better error handling:
+      -- ghci> runParser (char '{' *> many statementP <* char '}') "{ output; }"
+      -- Identity (ParseError (Just (SourceLocation (1,3))) (fromList ["}"])) -- Assumes the parsing error means we actually expected no statements
+      -- ghci> runParser (char '{' *> some statementP <* char '}') "{ output; }"
+      -- Identity (ParseError (Just (SourceLocation (1,3))) (fromList ["(","an identifier","an integer","if","return","var"])) -- Would have been much better
+      pendingWith "improved error message generation"
+      testRunParser (char '{' *> (many (char 'A') <|> string "BC") <* char '}') "{ B" `shouldBe` ParseError (Just $ SourceLocation (1, 3)) (fromList ["C"])
+    it "generates an intuitive token set for some + a parser which partially succeeded" $ do
+      -- pendingWith "improved error message generation"
+      testRunParser (char '{' *> (some (char 'A') <|> string "BC") <* char '}') "{ B" `shouldBe` ParseError (Just $ SourceLocation (1, 3)) (fromList ["A", "BC"])
