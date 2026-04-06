@@ -32,6 +32,13 @@ mergeErrors (ParseOk v) _ = ParseOk v
 mergeErrors (ParseError _ _) (ParseOk v) = ParseOk v
 -- TODO: Do ParseResults even need to track their fail location? Multiple parse
 -- Wouldn't multiple parse errors end up failing in the same spot?
+--
+-- NOTE: When commitment rule implemented (partial progress = parser commits), then we don't need to worry about the source location.
+-- If left parser partially succeeded, we'll commit to to the left parser.
+-- If left parser failed and right parser partially succeeded, we'll commit to the right parser.
+-- If neither made progress, then they'll both agree on source location.
+--
+-- Probably a reasonable strategy is to implement Alternative first and then see whether we need this at all.
 mergeErrors (ParseError ll ls) (ParseError rl rs) = ParseError (ll <|> rl) (S.union ls rs)
 
 -- Our parser type. We return pairs of (the parsed object, the remaining
@@ -79,6 +86,13 @@ instance (Monad m, Show i) => Monad (Parser i m) where
 
 instance (Monad m, Show i) => Alternative (Parser i m) where
   empty = Parser $ \_ -> pure $ ParseError Nothing S.empty
+
+  -- TODO: Implement "commitment" rule? If a parser partially succeeds, don't allow backtracking -- that is, don't try running the next parser.
+  -- This improves error messages. Essentially, it means if we see an error in a certain construct, then we diagnose that as an error in that particular construct rather than seeing it as a reason to try a different parser.
+  --
+  -- We can check for partial match by looking at the source location information and seeing if that changed.
+  --
+  -- Note that we occasionally might have a valid reason to still try backtracking. This is where having `try` can be helpful.
   p <|> q = Parser $ \s -> do
     pl <- unParser p s
     case pl of
