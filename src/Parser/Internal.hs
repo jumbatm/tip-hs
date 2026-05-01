@@ -3,7 +3,7 @@ module Parser.Internal where
 import Control.Applicative
 import Data.Set as S
 
-newtype SourceLocation = SourceLocation (Int, Int) deriving (Show, Eq)
+newtype SourceLocation = SourceLocation (Int, Int) deriving (Show, Eq, Ord)
 
 -- Error handling.
 
