@@ -24,11 +24,11 @@ testError (ParseError _ _) = True
 testError (ParseOk _) = False
 
 prop_char_parsed :: Char -> String -> Bool
-prop_char_parsed e s@[] = testRunParser (char e) s == ParseError (Just $ SourceLocation (1, 1)) (singleton [e])
+prop_char_parsed e s@[] = testRunParser (char e) s == ParseError (SourceLocation (1, 1)) (singleton [e])
 prop_char_parsed e s@(c : cs) = test $ testRunParser (char e) s
   where
     test p | c == e = p == ParseOk (c, dropWhile isSpace cs)
-    test p = p == ParseError (Just $ SourceLocation (1, 1)) (singleton [e])
+    test p = p == ParseError (SourceLocation (1, 1)) (singleton [e])
 
 prop_valid_identifier :: String -> Bool
 prop_valid_identifier s =
@@ -53,7 +53,7 @@ spec = do
     it "matches a simple positive case" $ do
       testRunParser (char 'a') "abc" `shouldBe` ParseOk ('a', "bc")
     it "rejects a simple negative case" $ do
-      testRunParser (char 'a') "cba" `shouldBe` ParseError (Just $ SourceLocation (1, 1)) (singleton "a")
+      testRunParser (char 'a') "cba" `shouldBe` ParseError (SourceLocation (1, 1)) (singleton "a")
     prop "parses its character properly" $ do
       prop_char_parsed
 
@@ -61,7 +61,7 @@ spec = do
     it "parses a valid sequence properly" $ do
       testRunParser (keyword "foo") "foobar" `shouldBe` ParseOk ("foo", "bar")
     it "rejects an invalid sequence" $ do
-      testRunParser (keyword "abc") "defghi" `shouldBe` ParseError (Just $ SourceLocation (1, 1)) (singleton "abc")
+      testRunParser (keyword "abc") "defghi" `shouldBe` ParseError (SourceLocation (1, 1)) (singleton "abc")
 
   describe "instance Alternative Parser" $ do
     it "returns result of first parser if it's successful" $ do
@@ -69,7 +69,7 @@ spec = do
     it "returns result of second parser if that's successful" $ do
       testRunParser (keyword "baz" <|> keyword "bar") "barfoo" `shouldBe` ParseOk ("bar", "foo")
     it "returns Nothing if both parsers fail" $ do
-      testRunParser (keyword "foo" <|> keyword "bar") "bazqux" `shouldBe` ParseError (Just $ SourceLocation (1, 1)) (fromList ["foo", "bar"])
+      testRunParser (keyword "foo" <|> keyword "bar") "bazqux" `shouldBe` ParseError (SourceLocation (1, 1)) (fromList ["foo", "bar"])
 
   describe "satisfyWhile" $ do
     it "correctly splits string starting with chars which satisfy the predicate" $ do
@@ -91,7 +91,7 @@ spec = do
       -- ghci> runParser (char '{' *> some statementP <* char '}') "{ output; }"
       -- Identity (ParseError (Just (SourceLocation (1,3))) (fromList ["(","an identifier","an integer","if","return","var"])) -- Would have been much better
       pendingWith "improved error message generation"
-      testRunParser (char '{' *> (many (char 'A') <|> string "BC") <* char '}') "{ B" `shouldBe` ParseError (Just $ SourceLocation (1, 3)) (fromList ["C"])
+      testRunParser (char '{' *> (many (char 'A') <|> string "BC") <* char '}') "{ B" `shouldBe` ParseError (SourceLocation (1, 3)) (fromList ["C"])
     it "generates an intuitive token set for some + a parser which partially succeeded" $ do
       -- pendingWith "improved error message generation"
-      testRunParser (char '{' *> (some (char 'A') <|> string "BC") <* char '}') "{ B" `shouldBe` ParseError (Just $ SourceLocation (1, 3)) (fromList ["A", "BC"])
+      testRunParser (char '{' *> (some (char 'A') <|> string "BC") <* char '}') "{ B" `shouldBe` ParseError (SourceLocation (1, 3)) (fromList ["A", "BC"])

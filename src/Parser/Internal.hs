@@ -7,7 +7,7 @@ newtype SourceLocation = SourceLocation (Int, Int) deriving (Show, Eq, Ord)
 
 -- Error handling.
 
-data ParseResult a = ParseError (Maybe SourceLocation) (Set String) | ParseOk a deriving (Show, Eq)
+data ParseResult a = ParseError SourceLocation (Set String) | ParseOk a deriving (Show, Eq)
 
 instance Functor ParseResult where
   fmap f (ParseOk v) = ParseOk $ f v
@@ -24,7 +24,7 @@ instance Monad ParseResult where
   ParseOk v >>= f = f v
 
 instance Alternative ParseResult where
-  empty = ParseError Nothing S.empty
+  empty = ParseError (SourceLocation (0, 0)) S.empty
   (<|>) = mergeErrors
 
 mergeErrors :: ParseResult a -> ParseResult a -> ParseResult a
@@ -39,7 +39,7 @@ mergeErrors (ParseError _ _) (ParseOk v) = ParseOk v
 -- If neither made progress, then they'll both agree on source location.
 --
 -- Probably a reasonable strategy is to implement Alternative first and then see whether we need this at all.
-mergeErrors (ParseError ll ls) (ParseError rl rs) = ParseError (ll <|> rl) (S.union ls rs)
+mergeErrors (ParseError ll ls) (ParseError rl rs) = ParseError (min ll rl) (S.union ls rs)
 
 -- Our parser type. We return pairs of (the parsed object, the remaining
 -- string). We have a list as we're able to handle ambiguous grammars and
@@ -85,7 +85,7 @@ instance (Monad m, Show i) => Monad (Parser i m) where
       ParseOk (vv, vs) -> unParser (pf vv) vs
 
 instance (Monad m, Show i) => Alternative (Parser i m) where
-  empty = Parser $ \_ -> pure $ ParseError Nothing S.empty
+  empty = Parser $ \_ -> pure Control.Applicative.empty
 
   -- TODO: Implement "commitment" rule? If a parser partially succeeds, don't allow backtracking -- that is, don't try running the next parser.
   -- This improves error messages. Essentially, it means if we see an error in a certain construct, then we diagnose that as an error in that particular construct rather than seeing it as a reason to try a different parser.

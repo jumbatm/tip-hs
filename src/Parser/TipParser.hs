@@ -54,9 +54,9 @@ char c = lexeme $ satisfy (== c) <?> [c]
 type TipParser = CharParser Identity
 
 eof :: TipParser ()
-eof = Parser $ \st@(CharParserState ch _) -> pure $ case ch of
+eof = Parser $ \st@(CharParserState ch pos) -> pure $ case ch of
   "" -> ParseOk ((), st)
-  _ -> ParseError Nothing (singleton "end of file")
+  _ -> ParseError pos (singleton "end of file")
 
 annotateLoc :: TipParser a -> TipParser (Located a)
 annotateLoc p = Located <$> getPos <*> p
