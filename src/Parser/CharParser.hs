@@ -23,7 +23,7 @@ satisfy :: (Monad m) => (Char -> Bool) -> CharParser m Char
 satisfy p = Parser f
   where
     f (CharParserState (c : cs) l) | p c = pure $ ParseOk (c, CharParserState cs (computeNewPos c l))
-    f (CharParserState _ pos) = pure $ ParseError (Just pos) S.empty
+    f (CharParserState _ pos) = pure $ ParseError pos S.empty
 
     computeNewPos c (SourceLocation (line, col)) = SourceLocation $ case c of
       '\n' -> (line + 1, 1)
