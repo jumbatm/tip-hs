@@ -22,7 +22,7 @@ spec = do
         contents <- readFile $ examplesDirectory </> file
         case parse contents of
           ParseOk _ast -> pure ()
-          ParseError loc msg ->
+          ParseError _ loc msg ->
             let message = show loc ++ ": expected " ++ show msg
              in case getXfailReason contents of
                   Just reason -> pendingWith (reason ++ ": " ++ message)

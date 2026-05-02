@@ -8,29 +8,31 @@ newtype SourceLocation = SourceLocation (Int, Int) deriving (Show, Eq, Ord)
 
 -- Error handling.
 
-data ParseResult a = ParseError SourceLocation (Set String) | ParseOk a deriving (Show, Eq)
+data Progress = Consumed | Empty deriving (Show, Eq)
+
+data ParseResult a = ParseError Progress SourceLocation (Set String) | ParseOk a deriving (Show, Eq)
 
 instance Functor ParseResult where
   fmap f (ParseOk v) = ParseOk $ f v
-  fmap _ (ParseError l s) = ParseError l s
+  fmap _ (ParseError p l s) = ParseError p l s
 
 instance Applicative ParseResult where
   pure = ParseOk
 
-  ParseError l s <*> _ = ParseError l s
+  ParseError p l s <*> _ = ParseError p l s
   ParseOk f <*> r = fmap f r
 
 instance Monad ParseResult where
-  ParseError l s >>= _ = ParseError l s
+  ParseError p l s >>= _ = ParseError p l s
   ParseOk v >>= f = f v
 
 instance Alternative ParseResult where
-  empty = ParseError (SourceLocation (0, 0)) S.empty
+  empty = ParseError Empty (SourceLocation (0, 0)) S.empty
   (<|>) = mergeErrors
 
 mergeErrors :: ParseResult a -> ParseResult a -> ParseResult a
 mergeErrors (ParseOk v) _ = ParseOk v
-mergeErrors (ParseError _ _) (ParseOk v) = ParseOk v
+mergeErrors (ParseError {}) (ParseOk v) = ParseOk v
 -- TODO: Do ParseResults even need to track their fail location? Multiple parse
 -- Wouldn't multiple parse errors end up failing in the same spot?
 --
@@ -40,7 +42,13 @@ mergeErrors (ParseError _ _) (ParseOk v) = ParseOk v
 -- If neither made progress, then they'll both agree on source location.
 --
 -- Probably a reasonable strategy is to implement Alternative first and then see whether we need this at all.
-mergeErrors (ParseError ll ls) (ParseError rl rs) = ParseError (min ll rl) (S.union ls rs)
+mergeErrors (ParseError lp ll ls) (ParseError rp rl rs) = ParseError (merge lp rp) (min ll rl) (S.union ls rs)
+  where
+    merge :: Progress -> Progress -> Progress
+    merge Empty Empty = Empty
+    merge l Empty = l
+    merge Empty r = r
+    merge Consumed Consumed = Consumed
 
 -- Our parser type. We return pairs of (the parsed object, the remaining
 -- string). We have a list as we're able to handle ambiguous grammars and
@@ -57,7 +65,7 @@ instance (Monad m) => Functor (Parser i m) where
     -- which will apply a function to the first element of a tuple.
     pure $ case r of
       ParseOk (v, s') -> ParseOk (f v, s')
-      ParseError loc ex -> ParseError loc ex
+      ParseError p loc ex -> ParseError p loc ex
 
 instance (Show i, Monad m) => Applicative (Parser i m) where
   pure v = Parser $ \s -> pure $ ParseOk (v, s)
@@ -66,13 +74,13 @@ instance (Show i, Monad m) => Applicative (Parser i m) where
 instance (Monad m, Show i) => Monad (Parser i m) where
   pv >>= pf = Parser $ \s -> do
     v <- unParser pv s
-    -- NOTE: Not just a >>= here because we have to also lift `pf` (which
-    -- produces a Parser, not a ParseResult) _through_ ParseResult, i.e., pull
-    -- the value up and out of the context of ParseResult so it's in Parser and
-    -- we can unParser it.
     case v of
-      ParseError loc msg -> pure $ ParseError loc msg
-      ParseOk (vv, vs) -> unParser (pf vv) vs
+      ParseError _ loc msg -> pure $ ParseError Empty loc msg
+      ParseOk (vv, vs) -> do
+        result <- unParser (pf vv) vs
+        pure $ case result of
+          ParseError _ loc ex -> ParseError Consumed loc ex
+          ok@ParseOk {} -> ok
 
 instance (Monad m, Show i) => Alternative (Parser i m) where
   empty = Parser $ \_ -> pure Control.Applicative.empty
@@ -87,11 +95,11 @@ instance (Monad m, Show i) => Alternative (Parser i m) where
     pl <- unParser p s
     case pl of
       ParseOk v -> pure $ ParseOk v
-      el@(ParseError _ _) -> do
+      el@(ParseError {}) -> do
         pr <- unParser q s
         case pr of
           ParseOk v -> pure $ ParseOk v
-          er@(ParseError _ _) -> pure $ mergeErrors el er
+          er@(ParseError {}) -> pure $ mergeErrors el er
 
 -- NOTE: As it turns out, a generic satisfy doesn't necessarily work out in all
 -- cases. For example, we want CharParser to be able to update its own source
