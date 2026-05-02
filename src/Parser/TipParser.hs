@@ -56,7 +56,7 @@ type TipParser = CharParser Identity
 eof :: TipParser ()
 eof = Parser $ \st@(CharParserState ch pos) -> pure $ case ch of
   "" -> ParseOk ((), st)
-  _ -> ParseError pos (singleton "end of file")
+  _ -> ParseError Empty pos (singleton "end of file")
 
 annotateLoc :: TipParser a -> TipParser (Located a)
 annotateLoc p = Located <$> getPos <*> p

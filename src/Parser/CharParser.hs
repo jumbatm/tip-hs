@@ -23,7 +23,7 @@ satisfy :: (Monad m) => (Char -> Bool) -> CharParser m Char
 satisfy p = Parser f
   where
     f (CharParserState (c : cs) l) | p c = pure $ ParseOk (c, CharParserState cs (computeNewPos c l))
-    f (CharParserState _ pos) = pure $ ParseError pos S.empty
+    f (CharParserState _ pos) = pure $ ParseError Empty pos S.empty
 
     computeNewPos c (SourceLocation (line, col)) = SourceLocation $ case c of
       '\n' -> (line + 1, 1)
@@ -46,7 +46,7 @@ label :: (Monad m) => String -> CharParser m a -> CharParser m a
 label msg parser = Parser $ \s -> do
   r <- unParser parser s
   pure $ case r of
-    ParseError loc _ -> ParseError loc (singleton msg)
+    ParseError p loc _ -> ParseError p loc (singleton msg)
     ParseOk v -> ParseOk v
 
 -- Label operator.
