@@ -1,6 +1,7 @@
 module Parser.Internal where
 
 import Control.Applicative
+import Control.Monad
 import Data.Set as S
 
 newtype SourceLocation = SourceLocation (Int, Int) deriving (Show, Eq, Ord)
@@ -60,18 +61,7 @@ instance (Monad m) => Functor (Parser i m) where
 
 instance (Show i, Monad m) => Applicative (Parser i m) where
   pure v = Parser $ \s -> pure $ ParseOk (v, s)
-  pf <*> pv = Parser $ \s -> do
-    f <- unParser pf s
-    case f of
-      -- Propagate along error.
-      ParseError loc ex -> pure $ ParseError loc ex
-      ParseOk (fv, fs) -> do
-        v <- unParser pv fs
-        case v of
-          -- Propagate along error.
-          ParseError loc ex -> pure $ ParseError loc ex
-          ParseOk (vv, vs) -> do
-            pure $ ParseOk (fv vv, vs)
+  (<*>) = ap
 
 instance (Monad m, Show i) => Monad (Parser i m) where
   pv >>= pf = Parser $ \s -> do
