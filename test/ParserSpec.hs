@@ -65,11 +65,13 @@ spec = do
 
   describe "instance Alternative Parser" $ do
     it "returns result of first parser if it's successful" $ do
-      testRunParser (keyword "foo" <|> keyword "bar") "barbaz" `shouldBe` ParseOk ("bar", "baz")
+      testRunParser (keyword "foo" <|> keyword "bar") "foobar" `shouldBe` ParseOk ("foo", "bar")
     it "returns result of second parser if that's successful" $ do
-      testRunParser (keyword "baz" <|> keyword "bar") "barfoo" `shouldBe` ParseOk ("bar", "foo")
+      testRunParser (keyword "foo" <|> keyword "bar") "barfoo" `shouldBe` ParseOk ("bar", "foo")
+    it "commits to first parser on partial match" $ do
+      testRunParser (keyword "baz" <|> keyword "bar") "bar" `shouldBe` ParseError Consumed (SourceLocation (1, 3)) (fromList ["baz"])
     it "returns Nothing if both parsers fail" $ do
-      testRunParser (keyword "foo" <|> keyword "bar") "bazqux" `shouldBe` ParseError Empty (SourceLocation (1, 1)) (fromList ["foo", "bar"])
+      testRunParser (keyword "foo" <|> keyword "bar") "qux" `shouldBe` ParseError Empty (SourceLocation (1, 1)) (fromList ["foo", "bar"])
     it "commits to the first parser if we got a partial match" $ do
       testRunParser (string "ABC" <|> string "ABG") "ABG" `shouldBe` ParseError Consumed (SourceLocation (1, 3)) (fromList ["ABC"])
     it "allows backtracking if the try combinator is used" $ do
@@ -104,8 +106,6 @@ spec = do
       -- Identity (ParseError (Just (SourceLocation (1,3))) (fromList ["}"])) -- Assumes the parsing error means we actually expected no statements
       -- ghci> runParser (char '{' *> some statementP <* char '}') "{ output; }"
       -- Identity (ParseError (Just (SourceLocation (1,3))) (fromList ["(","an identifier","an integer","if","return","var"])) -- Would have been much better
-      pendingWith "improved error message generation"
-      testRunParser (char '{' *> (many (char 'A') <|> string "BC") <* char '}') "{ B" `shouldBe` ParseError Empty (SourceLocation (1, 3)) (fromList ["C"])
+      testRunParser (char '{' *> many (string "ABC") <* char '}') "{ A" `shouldBe` ParseError Consumed (SourceLocation (1, 4)) (fromList ["ABC"])
     it "generates an intuitive token set for some + a parser which partially succeeded" $ do
-      -- pendingWith "improved error message generation"
-      testRunParser (char '{' *> (some (char 'A') <|> string "BC") <* char '}') "{ B" `shouldBe` ParseError Empty (SourceLocation (1, 3)) (fromList ["A", "BC"])
+      testRunParser (char '{' *> some (string "ABC") <* char '}') "{ A" `shouldBe` ParseError Consumed (SourceLocation (1, 4)) (fromList ["ABC"])

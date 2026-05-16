@@ -42,7 +42,7 @@ mergeErrors (ParseError {}) (ParseOk v) = ParseOk v
 -- If neither made progress, then they'll both agree on source location.
 --
 -- Probably a reasonable strategy is to implement Alternative first and then see whether we need this at all.
-mergeErrors (ParseError lp ll ls) (ParseError rp rl rs) = ParseError (merge lp rp) (min ll rl) (S.union ls rs)
+mergeErrors (ParseError lp ll ls) (ParseError rp _ rs) = ParseError (merge lp rp) ll (S.union ls rs)
   where
     merge :: Progress -> Progress -> Progress
     merge Empty Empty = Empty
@@ -75,7 +75,7 @@ instance (Monad m, Show i) => Monad (Parser i m) where
   pv >>= pf = Parser $ \s -> do
     v <- unParser pv s
     case v of
-      ParseError _ loc msg -> pure $ ParseError Empty loc msg
+      ParseError p loc msg -> pure $ ParseError p loc msg
       ParseOk (vv, vs) -> do
         result <- unParser (pf vv) vs
         pure $ case result of
