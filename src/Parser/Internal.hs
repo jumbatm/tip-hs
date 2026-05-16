@@ -85,21 +85,18 @@ instance (Monad m, Show i) => Monad (Parser i m) where
 instance (Monad m, Show i) => Alternative (Parser i m) where
   empty = Parser $ \_ -> pure Control.Applicative.empty
 
-  -- TODO: Implement "commitment" rule? If a parser partially succeeds, don't allow backtracking -- that is, don't try running the next parser.
-  -- This improves error messages. Essentially, it means if we see an error in a certain construct, then we diagnose that as an error in that particular construct rather than seeing it as a reason to try a different parser.
-  --
-  -- We can check for partial match by looking at the source location information and seeing if that changed.
-  --
-  -- Note that we occasionally might have a valid reason to still try backtracking. This is where having `try` can be helpful.
+  -- TODO: we might occasionally might have a valid reason to still try backtracking. This is where having `try` can be helpful.
   p <|> q = Parser $ \s -> do
     pl <- unParser p s
     case pl of
       ParseOk v -> pure $ ParseOk v
-      el@(ParseError {}) -> do
+      -- Commitment rule: if partial success, commit to this parsing rule and don't try the other. This prevents backtracking.
+      el@(ParseError Consumed _ _) -> pure el
+      el@(ParseError Empty _ _) -> do
         pr <- unParser q s
-        case pr of
-          ParseOk v -> pure $ ParseOk v
-          er@(ParseError {}) -> pure $ mergeErrors el er
+        pure $ case pr of
+          ParseOk v -> ParseOk v
+          er@(ParseError {}) -> mergeErrors el er
 
 -- NOTE: As it turns out, a generic satisfy doesn't necessarily work out in all
 -- cases. For example, we want CharParser to be able to update its own source

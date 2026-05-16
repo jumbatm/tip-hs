@@ -70,6 +70,8 @@ spec = do
       testRunParser (keyword "baz" <|> keyword "bar") "barfoo" `shouldBe` ParseOk ("bar", "foo")
     it "returns Nothing if both parsers fail" $ do
       testRunParser (keyword "foo" <|> keyword "bar") "bazqux" `shouldBe` ParseError Empty (SourceLocation (1, 1)) (fromList ["foo", "bar"])
+    it "commits to the first parser if we got a partial match" $ do
+      testRunParser (string "ABC" <|> string "DEF") "ABG" `shouldBe` ParseError Consumed (SourceLocation (1, 3)) (fromList ["ABC"])
 
   describe "satisfyWhile" $ do
     it "correctly splits string starting with chars which satisfy the predicate" $ do
