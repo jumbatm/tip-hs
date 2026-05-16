@@ -122,3 +122,11 @@ instance (Monad m, Show i) => Alternative (Parser i m) where
 
 sepBy :: (Show i, Monad m) => Parser i m o -> Parser i m o' -> Parser i m [o]
 sepBy p q = (:) <$> p <*> many (q *> p) <|> pure []
+
+-- Try combinator. Allows backtracking. Kind of cheeky: signal that no characters were consumed.
+try :: (Monad m) => Parser s m o -> Parser s m o
+try p = Parser $ \s -> do
+  pv <- unParser p s
+  pure $ case pv of
+    ParseOk v -> ParseOk v
+    ParseError _ loc ex -> ParseError Empty loc ex
