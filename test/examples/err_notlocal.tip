@@ -1,6 +1,3 @@
-// XFAIL: parser completeness
-
-
 f(){
     var n;
     return 17;
