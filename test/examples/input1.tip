@@ -1,5 +1,3 @@
-// XFAIL: parser completeness
-
 test(){
     var a;
     a = input;
