@@ -10,29 +10,29 @@ newtype SourceLocation = SourceLocation (Int, Int) deriving (Show, Eq, Ord)
 
 data Progress = Consumed | Empty deriving (Show, Eq)
 
-data ParseResult a = ParseError Progress SourceLocation (Set String) | ParseOk a deriving (Show, Eq)
+data ParseResult a = ParseError Progress SourceLocation (Set String) | ParseOk Progress a deriving (Show, Eq)
 
 instance Functor ParseResult where
-  fmap f (ParseOk v) = ParseOk $ f v
+  fmap f (ParseOk p v) = ParseOk p (f v)
   fmap _ (ParseError p l s) = ParseError p l s
 
 instance Applicative ParseResult where
-  pure = ParseOk
+  pure = ParseOk Empty
 
   ParseError p l s <*> _ = ParseError p l s
-  ParseOk f <*> r = fmap f r
+  ParseOk _ f <*> r = fmap f r
 
 instance Monad ParseResult where
   ParseError p l s >>= _ = ParseError p l s
-  ParseOk v >>= f = f v
+  ParseOk _ v >>= f = f v
 
 instance Alternative ParseResult where
   empty = ParseError Empty (SourceLocation (0, 0)) S.empty
   (<|>) = mergeErrors
 
 mergeErrors :: ParseResult a -> ParseResult a -> ParseResult a
-mergeErrors (ParseOk v) _ = ParseOk v
-mergeErrors (ParseError {}) (ParseOk v) = ParseOk v
+mergeErrors (ParseOk p v) _ = ParseOk p v
+mergeErrors (ParseError {}) (ParseOk p v) = ParseOk p v
 -- TODO: Do ParseResults even need to track their fail location? Multiple parse
 -- Wouldn't multiple parse errors end up failing in the same spot?
 --
@@ -64,11 +64,11 @@ instance (Monad m) => Functor (Parser i m) where
     -- ParseResult's fmap instance. Apparently there's Control.Arrow.first
     -- which will apply a function to the first element of a tuple.
     pure $ case r of
-      ParseOk (v, s') -> ParseOk (f v, s')
+      ParseOk p (v, s') -> ParseOk p (f v, s')
       ParseError p loc ex -> ParseError p loc ex
 
 instance (Show i, Monad m) => Applicative (Parser i m) where
-  pure v = Parser $ \s -> pure $ ParseOk (v, s)
+  pure v = Parser $ \s -> pure $ ParseOk Empty (v, s)
   (<*>) = ap
 
 instance (Monad m, Show i) => Monad (Parser i m) where
@@ -76,7 +76,7 @@ instance (Monad m, Show i) => Monad (Parser i m) where
     v <- unParser pv s
     case v of
       ParseError p loc msg -> pure $ ParseError p loc msg
-      ParseOk (vv, vs) -> do
+      ParseOk p (vv, vs) -> do
         result <- unParser (pf vv) vs
         pure $ case result of
           ParseError _ loc ex -> ParseError Consumed loc ex
@@ -89,13 +89,13 @@ instance (Monad m, Show i) => Alternative (Parser i m) where
   p <|> q = Parser $ \s -> do
     pl <- unParser p s
     case pl of
-      ParseOk v -> pure $ ParseOk v
+      ParseOk p v -> pure $ ParseOk p v
       -- Commitment rule: if partial success, commit to this parsing rule and don't try the other. This prevents backtracking.
       el@(ParseError Consumed _ _) -> pure el
       el@(ParseError Empty _ _) -> do
         pr <- unParser q s
         pure $ case pr of
-          ParseOk v -> ParseOk v
+          ParseOk p v -> ParseOk p v
           er@(ParseError {}) -> mergeErrors el er
 
 -- NOTE: As it turns out, a generic satisfy doesn't necessarily work out in all
@@ -127,6 +127,8 @@ sepBy p q = (:) <$> p <*> many (q *> p) <|> pure []
 try :: (Monad m) => Parser s m o -> Parser s m o
 try p = Parser $ \s -> do
   pv <- unParser p s
+  -- FIXME: Does this actually work?? Won't this cause the stream to have been
+  -- consumed on failure too?
   pure $ case pv of
-    ParseOk v -> ParseOk v
+    ParseOk pr v -> ParseOk pr v
     ParseError _ loc ex -> ParseError Empty loc ex

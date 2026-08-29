@@ -17,25 +17,25 @@ testRunParser :: CharParser Identity o -> String -> ParseResult (o, [Char])
 testRunParser p s = runIdentity $ f <$> (unParser p) (CharParserState s (SourceLocation (1, 1)))
   where
     -- f :: ParseResult (o, CharParserState) -> ParseResult (o, [Char])
-    f (ParseOk (v, st)) = ParseOk (v, getRawChars st)
+    f (ParseOk p (v, st)) = ParseOk p (v, getRawChars st)
     f (ParseError p loc ex) = ParseError p loc ex
 
 testError :: ParseResult a -> Bool
 testError (ParseError _ _ _) = True
-testError (ParseOk _) = False
+testError (ParseOk _ _) = False
 
 prop_char_parsed :: Char -> String -> Bool
 prop_char_parsed e s@[] = testRunParser (char e) s == ParseError Empty (SourceLocation (1, 1)) (singleton [e])
 prop_char_parsed e s@(c : cs) = test $ testRunParser (char e) s
   where
-    test p | c == e = p == ParseOk (c, dropWhile isSpace cs)
+    test p | c == e = p == ParseOk Consumed (c, dropWhile isSpace cs)
     test p = p == ParseError Empty (SourceLocation (1, 1)) (singleton [e])
 
 prop_valid_identifier :: String -> Bool
 prop_valid_identifier s =
   let r = testRunParser identifierP s; (i, rest) = spanValidIdentifier s
    in case s of
-        (c : _) | not $ Prelude.null i -> r == ParseOk (i, rest)
+        (c : _) | not $ Prelude.null i -> r == ParseOk Consumed (i, rest)
         _ -> case r of
           ParseError _ _ _ -> True
           _ -> False
@@ -52,7 +52,7 @@ spec :: Spec
 spec = do
   describe "char" $ do
     it "matches a simple positive case" $ do
-      testRunParser (char 'a') "abc" `shouldBe` ParseOk ('a', "bc")
+      testRunParser (char 'a') "abc" `shouldBe` ParseOk Consumed ('a', "bc")
     it "rejects a simple negative case" $ do
       testRunParser (char 'a') "cba" `shouldBe` ParseError Empty (SourceLocation (1, 1)) (singleton "a")
     prop "parses its character properly" $ do
@@ -60,15 +60,15 @@ spec = do
 
   describe "keyword" $ do
     it "parses a valid sequence properly" $ do
-      testRunParser (keyword "foo") "foobar" `shouldBe` ParseOk ("foo", "bar")
+      testRunParser (keyword "foo") "foobar" `shouldBe` ParseOk Consumed ("foo", "bar")
     it "rejects an invalid sequence" $ do
       testRunParser (keyword "abc") "defghi" `shouldBe` ParseError Empty (SourceLocation (1, 1)) (singleton "abc")
 
   describe "instance Alternative Parser" $ do
     it "returns result of first parser if it's successful" $ do
-      testRunParser (keyword "foo" <|> keyword "bar") "foobar" `shouldBe` ParseOk ("foo", "bar")
+      testRunParser (keyword "foo" <|> keyword "bar") "foobar" `shouldBe` ParseOk Consumed ("foo", "bar")
     it "returns result of second parser if that's successful" $ do
-      testRunParser (keyword "foo" <|> keyword "bar") "barfoo" `shouldBe` ParseOk ("bar", "foo")
+      testRunParser (keyword "foo" <|> keyword "bar") "barfoo" `shouldBe` ParseOk Consumed ("bar", "foo")
     it "commits to first parser on partial match" $ do
       testRunParser (keyword "baz" <|> keyword "bar") "bar" `shouldBe` ParseError Consumed (SourceLocation (1, 3)) (fromList ["baz"])
     it "returns Nothing if both parsers fail" $ do
@@ -76,15 +76,15 @@ spec = do
     it "commits to the first parser if we got a partial match" $ do
       testRunParser (string "ABC" <|> string "ABG") "ABG" `shouldBe` ParseError Consumed (SourceLocation (1, 3)) (fromList ["ABC"])
     it "allows backtracking if the try combinator is used" $ do
-      testRunParser (try (string "ABC") <|> string "ABG") "ABG" `shouldBe` ParseOk ("ABG", "")
+      testRunParser (try (string "ABC") <|> string "ABG") "ABG" `shouldBe` ParseOk Consumed ("ABG", "")
 
   describe "satisfyWhile" $ do
     it "correctly splits string starting with chars which satisfy the predicate" $ do
-      testRunParser (satisfyWhile (== 'a')) "aaabbb" `shouldBe` ParseOk ("aaa", "bbb")
+      testRunParser (satisfyWhile (== 'a')) "aaabbb" `shouldBe` ParseOk Consumed ("aaa", "bbb")
     it "correctly consumes nothing if no chars satisfy the predicate" $ do
-      testRunParser (satisfyWhile (== 'a')) "bbbccc" `shouldBe` ParseOk ("", "bbbccc")
+      testRunParser (satisfyWhile (== 'a')) "bbbccc" `shouldBe` ParseOk Empty ("", "bbbccc")
     it "correctly consumes nothing if matching chars not at start" $ do
-      testRunParser (satisfyWhile (== 'a')) "bbbaaa" `shouldBe` ParseOk ("", "bbbaaa")
+      testRunParser (satisfyWhile (== 'a')) "bbbaaa" `shouldBe` ParseOk Empty ("", "bbbaaa")
 
   describe "identifierP" $ do
     prop "only allows identifiers starting with a letter, followed by letters or numbers" $ do

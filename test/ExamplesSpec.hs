@@ -21,7 +21,7 @@ spec = do
       it file $ do
         contents <- readFile $ examplesDirectory </> file
         case parse contents of
-          ParseOk _ast -> pure ()
+          ParseOk _ _ast -> pure ()
           ParseError _ loc msg ->
             let message = show loc ++ ": expected " ++ show msg
              in case getXfailReason contents of
