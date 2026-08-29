@@ -7,6 +7,7 @@ import Data.Maybe (isNothing)
 import Data.Set as S
 import Parser.CharParser (CharParser, CharParserState (CharParserState), getRawChars, satisfyWhile, string)
 import Parser.Internal
+import Parser.TipLexer
 import Parser.TipParser
 import Test.Hspec
 import Test.Hspec.QuickCheck
