@@ -19,7 +19,7 @@ main = do
       let file = fromJust filearg
       contents <- readFile file
       case parse contents of
-        ParseOk ast -> putStrLn $ show ast
+        ParseOk _ ast -> putStrLn $ show ast
         ParseError _ loc msg -> do
           putStrLn $ "Parsing failure at " ++ file ++ ":" ++ (show loc) ++ ": expected " ++ (show msg)
           exitFailure

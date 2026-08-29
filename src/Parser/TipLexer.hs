@@ -59,5 +59,5 @@ comma = char ','
 
 eof :: TipParser ()
 eof = Parser $ \st@(CharParserState ch pos) -> pure $ case ch of
-  "" -> ParseOk ((), st)
+  "" -> ParseOk Empty ((), st)
   _ -> ParseError Empty pos (singleton "end of file")
