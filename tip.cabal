@@ -28,6 +28,7 @@ library
       Parser
       Parser.CharParser
       Parser.Internal
+      Parser.TipLexer
       Parser.TipParser
   other-modules:
       Paths_tip
