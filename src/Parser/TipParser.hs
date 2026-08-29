@@ -22,6 +22,7 @@ data Statement
   | Output Expression
   | If Expression [Statement] (Maybe [Statement])
   | Return (Maybe Expression)
+  | Assignment String Expression
   deriving (Show, Eq)
 
 data Located a = Located SourceLocation a deriving (Show, Eq)
@@ -105,7 +106,10 @@ idP :: TipParser Expression
 idP = lexeme $ Id <$> identifierP
 
 statementP :: TipParser Statement
-statementP = lexeme $ (variableDeclarationP <|> outputP <|> ifP <|> returnP) <* lexeme (char ';')
+statementP = lexeme $ (variableDeclarationP <|> outputP <|> ifP <|> returnP <|> assignmentP) <* lexeme (char ';')
+
+assignmentP :: TipParser Statement
+assignmentP = Assignment <$> lexeme identifierP <*> lexeme (char '=' *> expressionP)
 
 variableDeclarationP :: TipParser Statement
 variableDeclarationP = lexeme $ VariableDeclaration <$> (lexeme (keyword "var") *> identifierP)
