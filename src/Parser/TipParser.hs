@@ -82,7 +82,10 @@ factorOpP =
       <|> Divide <$ char '/'
 
 termP :: TipParser Expression
-termP = (flip Binary <$> factorP <*> termOpP <*> factorP) <|> factorP
+termP = buildExpression <$> factorP <*> optional ((,) <$> termOpP <*> factorP)
+  where
+    buildExpression expr Nothing = expr
+    buildExpression lhs (Just (op, rhs)) = Binary op lhs rhs
 
 factorP' :: TipParser (Maybe (Op, Expression))
 factorP' = optional ((,) <$> factorOpP <*> factorP)
