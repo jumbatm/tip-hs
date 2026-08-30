@@ -10,6 +10,10 @@ newtype SourceLocation = SourceLocation (Int, Int) deriving (Show, Eq, Ord)
 
 data Progress = Consumed | Empty deriving (Show, Eq)
 
+instance Semigroup Progress where
+  Empty <> Empty = Empty
+  _ <> _ = Consumed
+
 data ParseResult a = ParseError Progress SourceLocation (Set String) | ParseOk Progress a deriving (Show, Eq)
 
 instance Functor ParseResult where
@@ -76,11 +80,11 @@ instance (Monad m, Show i) => Monad (Parser i m) where
     v <- unParser pv s
     case v of
       ParseError p loc msg -> pure $ ParseError p loc msg
-      ParseOk p (vv, vs) -> do
+      ParseOk pl (vv, vs) -> do
         result <- unParser (pf vv) vs
         pure $ case result of
-          ParseError _ loc ex -> ParseError Consumed loc ex
-          ok@ParseOk {} -> ok
+          ParseError pr loc ex -> ParseError (pl <> pr) loc ex
+          ParseOk pr loc -> ParseOk (pl <> pr) loc
 
 instance (Monad m, Show i) => Alternative (Parser i m) where
   empty = Parser $ \_ -> pure Control.Applicative.empty
