@@ -37,22 +37,18 @@ instance Alternative ParseResult where
 mergeErrors :: ParseResult a -> ParseResult a -> ParseResult a
 mergeErrors (ParseOk p v) _ = ParseOk p v
 mergeErrors (ParseError {}) (ParseOk p v) = ParseOk p v
--- TODO: Do ParseResults even need to track their fail location? Multiple parse
--- Wouldn't multiple parse errors end up failing in the same spot?
---
--- NOTE: When commitment rule implemented (partial progress = parser commits), then we don't need to worry about the source location.
--- If left parser partially succeeded, we'll commit to to the left parser.
--- If left parser failed and right parser partially succeeded, we'll commit to the right parser.
--- If neither made progress, then they'll both agree on source location.
---
--- Probably a reasonable strategy is to implement Alternative first and then see whether we need this at all.
-mergeErrors (ParseError lp ll ls) (ParseError rp _ rs) = ParseError (merge lp rp) ll (S.union ls rs)
-  where
-    merge :: Progress -> Progress -> Progress
-    merge Empty Empty = Empty
-    merge l Empty = l
-    merge Empty r = r
-    merge Consumed Consumed = Consumed
+mergeErrors l@(ParseError lp ll ls) r@(ParseError rp rl rs) = case (lp, rp) of
+  -- Prefer the error that actually consumed something.
+  (Empty, Consumed) -> r
+  (Consumed, Empty) -> l
+  -- If they both agree on status, compare based on whatever parser made the most progress.
+  _ ->
+    let bp = lp <> rp
+     in case compare ll rl of
+          GT -> ParseError bp ll ls
+          LT -> ParseError bp rl rs
+          -- If they made the same progress, merge their expected token sets.
+          EQ -> ParseError bp ll (S.union ls rs)
 
 -- Our parser type. We return pairs of (the parsed object, the remaining
 -- string). We have a list as we're able to handle ambiguous grammars and
@@ -127,12 +123,11 @@ instance (Monad m, Show i) => Alternative (Parser i m) where
 sepBy :: (Show i, Monad m) => Parser i m o -> Parser i m o' -> Parser i m [o]
 sepBy p q = (:) <$> p <*> many (q *> p) <|> pure []
 
--- Try combinator. Allows backtracking. Kind of cheeky: signal that no characters were consumed.
+-- Try combinator. Allows backtracking. Kind of cheeky: signal that no
+-- characters were consumed, which will cause <|> to run the other parser.
 try :: (Monad m) => Parser s m o -> Parser s m o
 try p = Parser $ \s -> do
   pv <- unParser p s
-  -- FIXME: Does this actually work?? Won't this cause the stream to have been
-  -- consumed on failure too?
   pure $ case pv of
     ParseOk pr v -> ParseOk pr v
     ParseError _ loc ex -> ParseError Empty loc ex
