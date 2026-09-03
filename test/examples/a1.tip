@@ -1,4 +1,3 @@
-// XFAIL: parser completeness
 
 map(l,f,z) {
   var r;
