@@ -110,3 +110,7 @@ spec = do
       testRunParser (char '{' *> many (string "ABC") <* char '}') "{ A" `shouldBe` ParseError Consumed (SourceLocation (1, 4)) (fromList ["ABC"])
     it "generates an intuitive token set for some + a parser which partially succeeded" $ do
       testRunParser (char '{' *> some (string "ABC") <* char '}') "{ A" `shouldBe` ParseError Consumed (SourceLocation (1, 4)) (fromList ["ABC"])
+
+  describe "expression statements" $ do
+    it "accepts function calls as statements" $ do
+      testRunParser statementP "foo();" `shouldBe` ParseOk Consumed (Expression (Call (Id "foo") []), "")
