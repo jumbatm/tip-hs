@@ -39,9 +39,6 @@ annotateLoc p = Located <$> getPos <*> p
 tipProgramP :: TipParser TipProgram
 tipProgramP = TipProgram <$> (ws *> some (annotateLoc functionP))
 
-expressionP :: TipParser Expression
-expressionP = termP
-
 termOpP :: TipParser Op
 termOpP =
   Add <$ symbol "+"
@@ -54,28 +51,32 @@ factorOpP =
   Multiply <$ symbol "*"
     <|> Divide <$ symbol "/"
 
-termP :: TipParser Expression
-termP = buildExpression <$> factorP <*> optional ((,) <$> termOpP <*> factorP)
+expressionP :: TipParser Expression
+expressionP = buildExpression <$> termP <*> optional ((,) <$> termOpP <*> termP)
   where
     buildExpression expr Nothing = expr
     buildExpression lhs (Just (op, rhs)) = Binary op lhs rhs
 
 data RestOfFactor = BinExpr Op Expression | CallArgs [Expression]
 
-factorP' :: TipParser (Maybe RestOfFactor)
-factorP' = optional (parseRestOfBinExpr <|> parseRestOfCallExpr)
+termP' :: TipParser RestOfFactor
+termP' = parseRestOfBinExpr <|> parseRestOfCallExpr
   where
-    parseRestOfBinExpr = BinExpr <$> factorOpP <*> factorP
+    parseRestOfBinExpr = BinExpr <$> factorOpP <*> termP
     parseRestOfCallExpr = CallArgs <$> parens (expressionP `sepBy` char ',')
 
-factorP :: TipParser Expression
-factorP = build <$> (intP <|> idP <|> parens expressionP) <*> factorP'
+termP :: TipParser Expression
+termP = build <$> factorP <*> optional termP'
   where
     build :: Expression -> Maybe RestOfFactor -> Expression
     build lhs op_rhs = case op_rhs of
       Nothing -> lhs
       Just (BinExpr op rhs) -> Binary op lhs rhs
       Just (CallArgs args) -> Call lhs args
+
+factorP :: TipParser Expression
+factorP = intP <|> idP <|> parens expressionP
+  where
 
 intP :: TipParser Expression
 intP = Int <$> intLit
