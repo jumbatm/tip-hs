@@ -20,6 +20,7 @@ data Statement
   | Return (Maybe Expression)
   | Assignment String Expression
   | Expression Expression
+  | While Expression [Statement]
   deriving (Show, Eq)
 
 data Located a = Located SourceLocation a deriving (Show, Eq)
@@ -90,7 +91,7 @@ idP :: TipParser Expression
 idP = Id <$> identifier
 
 statementP :: TipParser Statement
-statementP = ifP <|> ((variableDeclarationP <|> outputP <|> returnP <|> assignmentP <|> (Expression <$> expressionP)) <* semi)
+statementP = ifP <|> whileP <|> ((variableDeclarationP <|> outputP <|> returnP <|> assignmentP <|> (Expression <$> expressionP)) <* semi)
 
 assignmentP :: TipParser Statement
 assignmentP = Assignment <$> identifier <*> (symbol "=" *> expressionP)
@@ -100,6 +101,9 @@ variableDeclarationP = VariableDeclaration <$> (keyword "var" *> (identifier `se
 
 outputP :: TipParser Statement
 outputP = Output <$> (keyword "output" *> expressionP)
+
+whileP :: TipParser Statement
+whileP = While <$> (keyword "while" *> parens expressionP) <*> braces (many statementP)
 
 ifP :: TipParser Statement
 ifP =
