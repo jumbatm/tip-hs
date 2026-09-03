@@ -66,13 +66,13 @@ spec = do
 
   describe "instance Alternative Parser" $ do
     it "returns result of first parser if it's successful" $ do
-      testRunParser (keyword "foo" <|> keyword "bar") "foobar" `shouldBe` ParseOk Consumed ("foo", "bar")
+      testRunParser (string "foo" <|> string "bar") "foobar" `shouldBe` ParseOk Consumed ("foo", "bar")
     it "returns result of second parser if that's successful" $ do
-      testRunParser (keyword "foo" <|> keyword "bar") "barfoo" `shouldBe` ParseOk Consumed ("bar", "foo")
+      testRunParser (string "foo" <|> string "bar") "barfoo" `shouldBe` ParseOk Consumed ("bar", "foo")
     it "commits to first parser on partial match" $ do
-      testRunParser (keyword "baz" <|> keyword "bar") "bar" `shouldBe` ParseError Consumed (SourceLocation (1, 3)) (fromList ["baz"])
+      testRunParser (string "baz" <|> string "bar") "bar" `shouldBe` ParseError Consumed (SourceLocation (1, 3)) (fromList ["baz"])
     it "returns Nothing if both parsers fail" $ do
-      testRunParser (keyword "foo" <|> keyword "bar") "qux" `shouldBe` ParseError Empty (SourceLocation (1, 1)) (fromList ["foo", "bar"])
+      testRunParser (string "foo" <|> string "bar") "qux" `shouldBe` ParseError Empty (SourceLocation (1, 1)) (fromList ["foo", "bar"])
     it "commits to the first parser if we got a partial match" $ do
       testRunParser (string "ABC" <|> string "ABG") "ABG" `shouldBe` ParseError Consumed (SourceLocation (1, 3)) (fromList ["ABC"])
     it "allows backtracking if the try combinator is used" $ do
