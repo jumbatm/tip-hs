@@ -13,8 +13,6 @@ data Decl
   | Function String [String] [Located Statement]
   deriving (Show, Eq)
 
-data Op = Add | Subtract | Multiply | Divide | GreaterThan | Equal deriving (Show, Eq)
-
 data Statement
   = VariableDeclaration [String]
   | Output Expression
@@ -26,10 +24,15 @@ data Statement
 
 data Located a = Located SourceLocation a deriving (Show, Eq)
 
+data UnOp = Dereference | AddressOf | Negate deriving (Show, Eq)
+
+data BinOp = Add | Subtract | Multiply | Divide | GreaterThan | Equal deriving (Show, Eq)
+
 data Expression
   = Int Int
   | Id String
-  | Binary Op Expression Expression
+  | Binary BinOp Expression Expression
+  | Unary UnOp Expression
   | Call Expression [Expression]
   deriving (Show, Eq)
 
@@ -39,14 +42,14 @@ annotateLoc p = Located <$> getPos <*> p
 tipProgramP :: TipParser TipProgram
 tipProgramP = TipProgram <$> (ws *> some (annotateLoc functionP))
 
-termOpP :: TipParser Op
+termOpP :: TipParser BinOp
 termOpP =
   Add <$ symbol "+"
     <|> Subtract <$ symbol "-"
     <|> GreaterThan <$ symbol ">"
     <|> Equal <$ keyword "=="
 
-factorOpP :: TipParser Op
+factorOpP :: TipParser BinOp
 factorOpP =
   Multiply <$ symbol "*"
     <|> Divide <$ symbol "/"
@@ -57,13 +60,16 @@ expressionP = buildExpression <$> termP <*> optional ((,) <$> termOpP <*> termP)
     buildExpression expr Nothing = expr
     buildExpression lhs (Just (op, rhs)) = Binary op lhs rhs
 
-data RestOfFactor = BinExpr Op Expression | CallArgs [Expression]
+data RestOfFactor = BinExpr BinOp Expression | CallArgs [Expression]
 
 termP' :: TipParser RestOfFactor
 termP' = parseRestOfBinExpr <|> parseRestOfCallExpr
   where
     parseRestOfBinExpr = BinExpr <$> factorOpP <*> termP
     parseRestOfCallExpr = CallArgs <$> parens (expressionP `sepBy` char ',')
+
+unOpP :: TipParser UnOp
+unOpP = Negate <$ char '-' <|> AddressOf <$ char '&' <|> Dereference <$ char '*'
 
 termP :: TipParser Expression
 termP = build <$> factorP <*> optional termP'
@@ -75,8 +81,7 @@ termP = build <$> factorP <*> optional termP'
       Just (CallArgs args) -> Call lhs args
 
 factorP :: TipParser Expression
-factorP = intP <|> idP <|> parens expressionP
-  where
+factorP = (intP <|> idP <|> parens expressionP) <|> (Unary <$> unOpP <*> factorP)
 
 intP :: TipParser Expression
 intP = Int <$> intLit
