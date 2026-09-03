@@ -35,6 +35,7 @@ data Expression
   | Binary BinOp Expression Expression
   | Unary UnOp Expression
   | Call Expression [Expression]
+  | Alloc Expression
   deriving (Show, Eq)
 
 annotateLoc :: TipParser a -> TipParser (Located a)
@@ -82,7 +83,7 @@ termP = build <$> factorP <*> optional termP'
       Just (CallArgs args) -> Call lhs args
 
 factorP :: TipParser Expression
-factorP = (intP <|> idP <|> parens expressionP) <|> (Unary <$> unOpP <*> factorP)
+factorP = (Alloc <$> (keyword "alloc" *> factorP)) <|> (intP <|> idP <|> parens expressionP) <|> (Unary <$> unOpP <*> factorP)
 
 intP :: TipParser Expression
 intP = Int <$> intLit
