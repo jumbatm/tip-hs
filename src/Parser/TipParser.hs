@@ -84,7 +84,7 @@ idP :: TipParser Expression
 idP = Id <$> identifier
 
 statementP :: TipParser Statement
-statementP = (variableDeclarationP <|> outputP <|> ifP <|> returnP <|> assignmentP <|> (Expression <$> expressionP)) <* semi
+statementP = ((variableDeclarationP <|> outputP <|> returnP <|> assignmentP <|> (Expression <$> expressionP)) <* semi) <|> ifP
 
 assignmentP :: TipParser Statement
 assignmentP = Assignment <$> identifier <*> (symbol "=" *> expressionP)
