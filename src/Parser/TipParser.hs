@@ -21,6 +21,7 @@ data Statement
   | If Expression [Statement] (Maybe [Statement])
   | Return (Maybe Expression)
   | Assignment String Expression
+  | Expression Expression
   deriving (Show, Eq)
 
 data Located a = Located SourceLocation a deriving (Show, Eq)
@@ -77,7 +78,7 @@ idP :: TipParser Expression
 idP = Id <$> identifier
 
 statementP :: TipParser Statement
-statementP = (variableDeclarationP <|> outputP <|> ifP <|> returnP <|> assignmentP) <* semi
+statementP = (variableDeclarationP <|> outputP <|> ifP <|> returnP <|> assignmentP <|> (Expression <$> expressionP)) <* semi
 
 assignmentP :: TipParser Statement
 assignmentP = Assignment <$> identifier <*> (symbol "=" *> expressionP)
