@@ -111,8 +111,10 @@ ifP :: TipParser Statement
 ifP =
   If
     <$> (keyword "if" *> parens expressionP)
-    <*> braces (many statementP)
-    <*> optional (keyword "else" *> braces (many statementP))
+    <*> statements
+    <*> optional (keyword "else" *> statements)
+  where
+    statements = (: []) <$> statementP <|> braces (many statementP)
 
 returnP :: TipParser Statement
 returnP = Return <$> (keyword "return" *> optional expressionP)
