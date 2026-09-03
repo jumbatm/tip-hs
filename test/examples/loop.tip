@@ -1,5 +1,3 @@
-// XFAIL: parser completeness
-
 main() {
   var a,b,i;
   a = 5;

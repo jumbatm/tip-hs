@@ -1,5 +1,3 @@
-// XFAIL: parser completeness
-
 idf(a) {
     return a;
 }

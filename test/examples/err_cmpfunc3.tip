@@ -1,5 +1,3 @@
-// XFAIL: parser completeness
-
 
 f(z){
     return (z)(4);

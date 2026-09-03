@@ -1,5 +1,3 @@
-// XFAIL: parser completeness
-
 main() {
     var s1,s2,s3,p,q;
     p = &s1;
