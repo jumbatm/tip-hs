@@ -90,8 +90,9 @@ intP = Int <$> intLit
 idP :: TipParser Expression
 idP = Id <$> identifier
 
+-- TODO: Left factor rules starting with an expression so we don't need to backtrack assignments.
 statementP :: TipParser Statement
-statementP = ifP <|> whileP <|> ((variableDeclarationP <|> outputP <|> returnP <|> assignmentP <|> (Expression <$> expressionP)) <* semi)
+statementP = ifP <|> whileP <|> ((variableDeclarationP <|> outputP <|> returnP <|> try assignmentP <|> (Expression <$> expressionP)) <* semi)
 
 assignmentP :: TipParser Statement
 assignmentP = Assignment <$> identifier <*> (symbol "=" *> expressionP)
