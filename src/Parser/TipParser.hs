@@ -60,16 +60,22 @@ termP = buildExpression <$> factorP <*> optional ((,) <$> termOpP <*> factorP)
     buildExpression expr Nothing = expr
     buildExpression lhs (Just (op, rhs)) = Binary op lhs rhs
 
-factorP' :: TipParser (Maybe (Op, Expression))
-factorP' = optional ((,) <$> factorOpP <*> factorP)
+data RestOfFactor = BinExpr Op Expression | CallArgs [Expression]
+
+factorP' :: TipParser (Maybe RestOfFactor)
+factorP' = optional (parseRestOfBinExpr <|> parseRestOfCallExpr)
+  where
+    parseRestOfBinExpr = BinExpr <$> factorOpP <*> factorP
+    parseRestOfCallExpr = CallArgs <$> parens (expressionP `sepBy` char ',')
 
 factorP :: TipParser Expression
-factorP = f <$> (intP <|> idP <|> parens expressionP) <*> factorP'
+factorP = build <$> (intP <|> idP <|> parens expressionP) <*> factorP'
   where
-    f :: Expression -> Maybe (Op, Expression) -> Expression
-    f lhs op_rhs = case op_rhs of
+    build :: Expression -> Maybe RestOfFactor -> Expression
+    build lhs op_rhs = case op_rhs of
       Nothing -> lhs
-      Just (op, rhs) -> Binary op lhs rhs
+      Just (BinExpr op rhs) -> Binary op lhs rhs
+      Just (CallArgs args) -> Call lhs args
 
 intP :: TipParser Expression
 intP = Int <$> intLit
