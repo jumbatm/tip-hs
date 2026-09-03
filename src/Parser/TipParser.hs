@@ -18,7 +18,7 @@ data Statement
   | Output Expression
   | If Expression [Statement] (Maybe [Statement])
   | Return (Maybe Expression)
-  | Assignment String Expression
+  | Assignment Expression Expression
   | Expression Expression
   | While Expression [Statement]
   deriving (Show, Eq)
@@ -96,7 +96,7 @@ statementP :: TipParser Statement
 statementP = ifP <|> whileP <|> ((variableDeclarationP <|> outputP <|> returnP <|> try assignmentP <|> (Expression <$> expressionP)) <* semi)
 
 assignmentP :: TipParser Statement
-assignmentP = Assignment <$> identifier <*> (symbol "=" *> expressionP)
+assignmentP = Assignment <$> expressionP <*> (symbol "=" *> expressionP)
 
 variableDeclarationP :: TipParser Statement
 variableDeclarationP = VariableDeclaration <$> (keyword "var" *> (identifier `sepBy` char ','))
