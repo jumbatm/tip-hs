@@ -1,4 +1,3 @@
-// XFAIL: parser completeness
 
 f(){
     return g(a);

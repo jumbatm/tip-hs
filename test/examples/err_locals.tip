@@ -1,4 +1,3 @@
-// XFAIL: parser completeness
 
 f(){
     var a,b,c;
