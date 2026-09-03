@@ -1,5 +1,3 @@
-// XFAIL: parser completeness
-
 // Not typable : int = [[r]]=[[g]]=&\alpha
 
 bar(g,x) {

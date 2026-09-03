@@ -1,5 +1,3 @@
-// XFAIL: parser completeness
-
 main() {
     var p,q,r,n;
     p = alloc null;

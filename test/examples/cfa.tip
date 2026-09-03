@@ -1,5 +1,3 @@
-// XFAIL: parser completeness
-
 inc(i) { return i+1; }
 dec(j) { return j-1; }
 ide(k) { return k; }

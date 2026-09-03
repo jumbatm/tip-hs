@@ -1,5 +1,3 @@
-// XFAIL: parser completeness
-
 // This program should be rejected by the declaration analysis
 main() {
     var funalias;

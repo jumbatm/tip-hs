@@ -1,5 +1,3 @@
-// XFAIL: parser completeness
-
 fib(n){
     var f1,f2,i;
     var temp;

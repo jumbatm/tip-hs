@@ -1,5 +1,3 @@
-// XFAIL: parser completeness
-
 f(x) {
   var r;
   if (x > 100) {
