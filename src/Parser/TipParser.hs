@@ -16,7 +16,7 @@ data Decl
 data Op = Add | Subtract | Multiply | Divide | GreaterThan | Equal deriving (Show, Eq)
 
 data Statement
-  = VariableDeclaration String
+  = VariableDeclaration [String]
   | Output Expression
   | If Expression [Statement] (Maybe [Statement])
   | Return (Maybe Expression)
@@ -90,7 +90,7 @@ assignmentP :: TipParser Statement
 assignmentP = Assignment <$> identifier <*> (symbol "=" *> expressionP)
 
 variableDeclarationP :: TipParser Statement
-variableDeclarationP = VariableDeclaration <$> (keyword "var" *> identifier)
+variableDeclarationP = VariableDeclaration <$> (keyword "var" *> (identifier `sepBy` char ','))
 
 outputP :: TipParser Statement
 outputP = Output <$> (keyword "output" *> expressionP)
