@@ -27,7 +27,7 @@ symbol :: String -> TipParser String
 symbol s = lexeme (string s <?> s)
 
 keyword :: String -> TipParser String
-keyword s = lexeme (string s <?> s)
+keyword s = try $ lexeme (string s <?> s)
 
 char :: Char -> TipParser Char
 char c = lexeme (satisfy (== c) <?> [c])
