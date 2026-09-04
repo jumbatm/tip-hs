@@ -57,17 +57,14 @@ factorOpP =
     <|> Divide <$ symbol "/"
 
 expressionP :: TipParser Expression
-expressionP = buildExpression <$> termP <*> optional ((,) <$> termOpP <*> termP)
-  where
-    buildExpression expr Nothing = expr
-    buildExpression lhs (Just (op, rhs)) = Binary op lhs rhs
+expressionP = chainl1 termP (Binary <$> termOpP)
 
 data RestOfFactor = BinExpr BinOp Expression | CallArgs [Expression]
 
 termP' :: TipParser RestOfFactor
 termP' = parseRestOfBinExpr <|> parseRestOfCallExpr
   where
-    parseRestOfBinExpr = BinExpr <$> factorOpP <*> termP
+    parseRestOfBinExpr = BinExpr <$> factorOpP <*> expressionP
     parseRestOfCallExpr = CallArgs <$> parens (expressionP `sepBy` char ',')
 
 unOpP :: TipParser UnOp

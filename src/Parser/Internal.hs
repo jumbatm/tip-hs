@@ -2,6 +2,7 @@ module Parser.Internal where
 
 import Control.Applicative
 import Control.Monad
+import Data.List as L
 import Data.Set as S
 
 newtype SourceLocation = SourceLocation (Int, Int) deriving (Show, Eq, Ord)
@@ -131,3 +132,16 @@ try p = Parser $ \s -> do
   pure $ case pv of
     ParseOk pr v -> ParseOk pr v
     ParseError _ loc ex -> ParseError Empty loc ex
+
+-- Parse 1 p, followed by zero or more `op p` and producing the left-recursive tree.
+chainl1 :: (Monad m, Show s) => Parser s m o -> Parser s m (o -> o -> o) -> Parser s m o
+chainl1 p op = p <**> rest
+  where
+    rest = ((\o r rs l -> rs (o l r)) <$> op <*> p <*> rest) <|> pure id
+
+-- Like chainl1 but produces the right-recursive tree instead.
+chainr1 :: (Monad m, Show s) => Parser s m o -> Parser s m (o -> o -> o) -> Parser s m o
+chainr1 p op = scan
+  where
+    scan = p <**> rest
+    rest = (flip <$> op <*> scan) <|> pure id
