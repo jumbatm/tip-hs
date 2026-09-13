@@ -20,8 +20,11 @@ spec = do
     forM_ tipFiles $ \file ->
       it file $ do
         contents <- readFile $ examplesDirectory </> file
+        let failReason = getXfailReason contents
         case parse contents of
-          ParseOk _ _ast -> pure ()
+          ParseOk _ _ast -> case failReason of
+            Nothing -> pure ()
+            Just reason -> expectationFailure $ "unexpected pass" ++ reason
           ParseError _ loc msg ->
             let message = show loc ++ ": expected " ++ show msg
              in case getXfailReason contents of
