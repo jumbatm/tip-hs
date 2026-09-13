@@ -121,3 +121,14 @@ spec = do
 
     it "is left recursive" $ do
       testRunParser expressionP "3-2-1" `shouldBe` ParseOk Consumed (Binary Subtract (Binary Subtract (Int 3) (Int 2)) (Int 1), "")
+
+  describe "manyTill" $ do
+    let p = testRunParser (manyTill (char 'A') (char ';'))
+    it "parses 0 items" $ do
+      p ";" `shouldBe` ParseOk Consumed ("", "")
+    it "parses 1 item" $ do
+      p "A;" `shouldBe` ParseOk Consumed ("A", "")
+    it "parses many items" $ do
+      p "AAAA;" `shouldBe` ParseOk Consumed ("AAAA", "")
+    it "rejects missing end" $ do
+      p "AAAA" `shouldBe` ParseError Consumed (SourceLocation (1, 5)) (fromList [";", "A"])

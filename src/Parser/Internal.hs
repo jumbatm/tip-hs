@@ -145,3 +145,6 @@ chainr1 p op = scan
   where
     scan = p <**> rest
     rest = (flip <$> op <*> scan) <|> pure id
+
+manyTill :: (Monad m, Show s) => Parser s m o -> Parser s m b -> Parser s m [o]
+manyTill p end = [] <$ end <|> (:) <$> p <*> manyTill p end
