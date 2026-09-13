@@ -37,6 +37,8 @@ data Expression
   | Unary UnOp Expression
   | Call Expression [Expression]
   | Alloc Expression
+  | Record [(String, Expression)]
+  | RecordAccess Expression String
   deriving (Show, Eq)
 
 annotateLoc :: TipParser a -> TipParser (Located a)
@@ -67,10 +69,15 @@ termP :: TipParser Expression
 termP = chainl1 factorP (Binary <$> factorOpP)
 
 factorP :: TipParser Expression
-factorP = foldl Call <$> atomP <*> (many . parens $ expressionP `sepBy` char ',') <|> (Unary <$> unOpP <*> factorP)
+factorP = foldl (flip ($)) <$> atomP <*> many trailing <|> (Unary <$> unOpP <*> factorP)
+  where
+    trailing = flip Call <$> parens (expressionP `sepBy` char ',') <|> flip RecordAccess <$> (char '.' *> identifierP)
 
 atomP :: TipParser Expression
-atomP = (Alloc <$> (keyword "alloc" *> factorP)) <|> (intP <|> idP <|> parens expressionP)
+atomP = (Alloc <$> (keyword "alloc" *> factorP)) <|> (intP <|> idP <|> parens expressionP <|> recordP)
+
+recordP :: TipParser Expression
+recordP = braces $ Record <$> ((,) <$> identifier <*> (char ':' *> expressionP)) `sepBy` char ','
 
 intP :: TipParser Expression
 intP = Int <$> intLit
