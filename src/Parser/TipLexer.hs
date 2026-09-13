@@ -10,7 +10,7 @@ import Parser.Internal
 type TipParser = CharParser Identity
 
 lineComment :: TipParser String
-lineComment = string "//" *> (string "\\\n" <|> satisfyWhile (/= '\n'))
+lineComment = try (string "//") *> (string "\\\n" <|> satisfyWhile (/= '\n'))
 
 -- Whitespace and comments consumer.
 ws :: Parser CharParserState Identity [String]
