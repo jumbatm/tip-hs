@@ -81,7 +81,10 @@ termP = build <$> factorP <*> optional termP'
       Just (CallArgs args) -> Call lhs args
 
 factorP :: TipParser Expression
-factorP = (Alloc <$> (keyword "alloc" *> factorP)) <|> (intP <|> idP <|> parens expressionP) <|> (Unary <$> unOpP <*> factorP)
+factorP = atomP <|> (Unary <$> unOpP <*> factorP)
+
+atomP :: TipParser Expression
+atomP = (Alloc <$> (keyword "alloc" *> factorP)) <|> (intP <|> idP <|> parens expressionP)
 
 intP :: TipParser Expression
 intP = Int <$> intLit
