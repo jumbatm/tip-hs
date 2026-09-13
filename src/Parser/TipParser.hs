@@ -60,28 +60,14 @@ factorOpP =
 expressionP :: TipParser Expression
 expressionP = chainl1 termP (Binary <$> termOpP)
 
-data RestOfFactor = BinExpr BinOp Expression | CallArgs [Expression]
-
-termP' :: TipParser RestOfFactor
-termP' = parseRestOfBinExpr <|> parseRestOfCallExpr
-  where
-    parseRestOfBinExpr = BinExpr <$> factorOpP <*> expressionP
-    parseRestOfCallExpr = CallArgs <$> parens (expressionP `sepBy` char ',')
-
 unOpP :: TipParser UnOp
 unOpP = Negate <$ char '-' <|> AddressOf <$ char '&' <|> Dereference <$ char '*'
 
 termP :: TipParser Expression
-termP = build <$> factorP <*> optional termP'
-  where
-    build :: Expression -> Maybe RestOfFactor -> Expression
-    build lhs op_rhs = case op_rhs of
-      Nothing -> lhs
-      Just (BinExpr op rhs) -> Binary op lhs rhs
-      Just (CallArgs args) -> Call lhs args
+termP = chainl1 factorP (Binary <$> factorOpP)
 
 factorP :: TipParser Expression
-factorP = atomP <|> (Unary <$> unOpP <*> factorP)
+factorP = foldl Call <$> atomP <*> (many . parens $ expressionP `sepBy` char ',') <|> (Unary <$> unOpP <*> factorP)
 
 atomP :: TipParser Expression
 atomP = (Alloc <$> (keyword "alloc" *> factorP)) <|> (intP <|> idP <|> parens expressionP)
