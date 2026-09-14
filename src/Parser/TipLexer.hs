@@ -12,9 +12,12 @@ type TipParser = CharParser Identity
 lineComment :: TipParser String
 lineComment = try (string "//") *> (string "\\\n" <|> satisfyWhile (/= '\n'))
 
+blockComment :: TipParser String
+blockComment = try (string "/*") *> manyTill (satisfy (const True)) (try (string "*/"))
+
 -- Whitespace and comments consumer.
 ws :: Parser CharParserState Identity [String]
-ws = many (lineComment <|> ((: []) <$> satisfy isSpace))
+ws = many (lineComment <|> blockComment <|> ((: []) <$> satisfy isSpace))
 
 -- Allow any amount of whitespace after a token parser.
 -- Kept internal so non-terminal grammar rules cannot mistakenly call it.

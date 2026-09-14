@@ -1,5 +1,3 @@
-// XFAIL: parser completeness
-
 /* "Mapping" a function over a list-like sequence of heap-allocated cells. Orginating from examples/a1.tip. */
 
 map(l,f,z) {
