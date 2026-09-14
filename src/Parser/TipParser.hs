@@ -22,6 +22,7 @@ data Statement
   | Expression Expression
   | While Expression [Statement]
   | Block [Statement]
+  | Error Expression
   deriving (Show, Eq)
 
 data Located a = Located SourceLocation a deriving (Show, Eq)
@@ -87,7 +88,7 @@ idP = Id <$> identifier
 
 -- TODO: Left factor rules starting with an expression so we don't need to backtrack assignments.
 statementP :: TipParser Statement
-statementP = blockP <|> ifP <|> whileP <|> ((variableDeclarationP <|> outputP <|> returnP <|> try assignmentP <|> (Expression <$> expressionP)) <* semi)
+statementP = blockP <|> ifP <|> whileP <|> ((variableDeclarationP <|> outputP <|> errorP <|> returnP <|> try assignmentP <|> (Expression <$> expressionP)) <* semi)
 
 assignmentP :: TipParser Statement
 assignmentP = Assignment <$> expressionP <*> (symbol "=" *> expressionP)
@@ -97,6 +98,9 @@ variableDeclarationP = VariableDeclaration <$> (keyword "var" *> (identifier `se
 
 outputP :: TipParser Statement
 outputP = Output <$> (keyword "output" *> expressionP)
+
+errorP :: Parser CharParserState Identity Statement
+errorP = Error <$> (keyword "error" *> expressionP)
 
 whileP :: TipParser Statement
 whileP = While <$> (keyword "while" *> parens expressionP) <*> braces (many statementP)

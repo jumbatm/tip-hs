@@ -1,5 +1,3 @@
-// XFAIL: parser completeness
-
 double(v) {
   return 2*v;
 }
