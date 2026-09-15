@@ -1,5 +1,6 @@
 module Interpreter where
 
+import Data.Bifunctor (first)
 import Data.Map
 import Parser.TipParser
 
@@ -11,7 +12,7 @@ type Error = String
 newtype Interpreter a = Interpreter {runInterpreter :: Either Error (Map String Value -> (a, Map String Value))}
 
 instance Functor Interpreter where
-  fmap f (Interpreter frun) = Interpreter $ (\run st -> let (v, st') = run st in (f v, st')) <$> frun
+  fmap f (Interpreter frun) = Interpreter $ (first f .) <$> frun
 
 instance Applicative Interpreter
 
