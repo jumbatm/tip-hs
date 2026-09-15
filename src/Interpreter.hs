@@ -16,9 +16,9 @@ instance Functor Interpreter where
 
 instance Applicative Interpreter
 
--- instance Monad Interpreter where
---  return v = Interpreter $ \st -> (v, st)
---
---  mv >>= mf = Interpreter $ \st ->
---    let (v, vs) = run mv st
---     in run (mf v) vs
+instance Monad Interpreter where
+  return v = Interpreter $ Right $ \st -> (v, st)
+
+-- mv >>= mf = Interpreter $ \st ->
+--  let (v, vs) = run mv st
+--   in run (mf v) vs
