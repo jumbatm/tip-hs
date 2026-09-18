@@ -10,7 +10,8 @@
 #
 # snapshot: lts-23.0
 # snapshot: nightly-2024-12-13
-snapshot: lts-22.43
+# snapshot: lts-22.43
+resolver: lts-24.59
 #
 # The location of a snapshot can be provided as a file or url. Stack assumes
 # a snapshot provided as a file might change, whereas a url resource does not.
