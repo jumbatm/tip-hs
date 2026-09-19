@@ -64,7 +64,7 @@ expressionP :: TipParser Expression
 expressionP = chainl1 termP (Binary <$> termOpP)
 
 unOpP :: TipParser UnOp
-unOpP = Negate <$ char '-' <|> AddressOf <$ char '&' <|> Dereference <$ char '*'
+unOpP = Negate <$ char '-' <|> Dereference <$ char '*'
 
 termP :: TipParser Expression
 termP = chainl1 factorP (Binary <$> factorOpP)
@@ -75,7 +75,16 @@ factorP = foldl (flip ($)) <$> atomP <*> many trailing <|> (Unary <$> unOpP <*> 
     trailing = flip Call <$> parens (expressionP `sepBy` char ',') <|> flip RecordAccess <$> (char '.' *> identifierP)
 
 atomP :: TipParser Expression
-atomP = (Alloc <$> (keyword "alloc" *> factorP)) <|> (intP <|> idP <|> parens expressionP <|> recordP)
+atomP =
+  (Alloc <$> (keyword "alloc" *> factorP))
+    <|> ( ( \addr x -> case addr of
+              Just _ -> Unary AddressOf x
+              Nothing -> x
+          )
+            <$> (optional $ char '&')
+            <*> idP
+        )
+    <|> (intP <|> parens expressionP <|> recordP)
 
 recordP :: TipParser Expression
 recordP = braces $ Record <$> ((,) <$> identifier <*> (char ':' *> expressionP)) `sepBy` char ','
