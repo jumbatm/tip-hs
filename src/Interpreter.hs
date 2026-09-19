@@ -54,11 +54,15 @@ evalExpr (TP.Binary op lhs rhs) = do
       TP.Divide -> a `div` b
       TP.GreaterThan -> if a > b then 1 else 0
       TP.Equal -> if a == b then 1 else 0
-    evalBinOp _ _ _ = panic $ "type mismatch: no " ++ show op ++ " defined on " ++ show lhs ++ " and " ++ show rhs
+    evalBinOp _ _ _ = panic $ "no " ++ show op ++ " defined on " ++ show lhs ++ " and " ++ show rhs
+evalExpr (TP.Unary TP.Dereference (TP.Id name)) = get name
+evalExpr (TP.Unary TP.AddressOf (TP.Id name)) = pure $ Cell name
 evalExpr (TP.Unary op v) = do
   x <- evalExpr v
-  case op of
-    _ -> undefined
+  evalUnOp op x
+  where
+    evalUnOp TP.Negate (Integer n) = pure $ Integer (-n)
+    evalUnOp _ _ = panic $ "no " ++ show op ++ " defined for " ++ show v
 evalExpr (TP.Call f args) = undefined
 evalExpr (TP.Alloc expr) = undefined
 evalExpr (TP.Record bindings) = undefined
