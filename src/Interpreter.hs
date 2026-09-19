@@ -5,7 +5,7 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import qualified Parser.TipParser as TP
 
-data Value = Integer Int | String String | Record (Map String Value) deriving (Show)
+data Value = Integer Int | String String | Record (Map String Value) | Cell String deriving (Show)
 
 type Error = String
 
@@ -55,7 +55,10 @@ evalExpr (TP.Binary op lhs rhs) = do
       TP.GreaterThan -> if a > b then 1 else 0
       TP.Equal -> if a == b then 1 else 0
     evalBinOp _ _ _ = panic $ "type mismatch: no " ++ show op ++ " defined on " ++ show lhs ++ " and " ++ show rhs
-evalExpr (TP.Unary op v) = undefined
+evalExpr (TP.Unary op v) = do
+  x <- evalExpr v
+  case op of
+    _ -> undefined
 evalExpr (TP.Call f args) = undefined
 evalExpr (TP.Alloc expr) = undefined
 evalExpr (TP.Record bindings) = undefined
