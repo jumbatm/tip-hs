@@ -33,6 +33,9 @@ instance Monad Interpreter where
       Left err -> pure . Left $ err
       Right v -> run (fm v) env
 
+liftIO :: IO a -> Interpreter a
+liftIO action = Interpreter $ \_ -> Right <$> action
+
 getAddr :: String -> Interpreter (IORef Value)
 getAddr var = Interpreter $ \(Env m) -> pure $ case Map.lookup var m of
   Nothing -> Left $ "invalid variable " ++ var
@@ -81,11 +84,10 @@ evalExpr (TP.Unary op v) = do
   where
     evalUnOp TP.Negate (Integer n) = pure $ Integer (-n)
     evalUnOp _ _ = panic $ "no " ++ show op ++ " defined for " ++ show v
-evalExpr (TP.Alloc expr) = Interpreter $ \env -> do
-  ev <- run (evalExpr expr) env
-  case ev of
-    Left err -> pure $ Left err
-    Right v -> Right . Cell <$> newIORef v
+evalExpr (TP.Alloc expr) = do
+  ev <- evalExpr expr
+  ref <- liftIO $ newIORef ev
+  pure $ Cell ref
 evalExpr (TP.Call f args) = undefined
 evalExpr (TP.Record bindings) = undefined
 evalExpr (TP.RecordAccess r field) = undefined
