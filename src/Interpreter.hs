@@ -2,6 +2,7 @@ module Interpreter where
 
 import Control.Monad
 import Data.IORef
+import Data.List
 import Data.Map (Map)
 import qualified Data.Map as Map
 import qualified Parser.TipParser as TP
@@ -18,6 +19,9 @@ type Error = String
 data Function = Function [String] [TP.Located TP.Statement]
 
 data Env = Env (Map String (IORef Value)) (Map String Function)
+
+newEnv :: Env
+newEnv = Env Map.empty Map.empty
 
 newtype Interpreter a = Interpreter {run :: Env -> IO (Either Error a)}
 
@@ -43,15 +47,6 @@ instance Monad Interpreter where
 
 liftIO :: IO a -> Interpreter a
 liftIO action = Interpreter $ \_ -> Right <$> action
-
-withVar :: String -> Interpreter a -> Interpreter a
-withVar s interp = Interpreter $ \(Env m f) -> do
-  ref <- newIORef Null
-  let m' = Map.insert s ref m
-  run interp (Env m' f)
-
-withVars :: [String] -> Interpreter a -> Interpreter a
-withVars vars interp = foldr withVar interp vars
 
 getAddr :: String -> Interpreter (IORef Value)
 getAddr var = Interpreter $ \(Env m _) -> pure $ case Map.lookup var m of
@@ -127,4 +122,46 @@ evalExpr (TP.RecordAccess e s) = do
     _ -> do
       cv <- uncell v
       panic $ "looked up field " ++ s ++ " in non-record value " ++ show cv
-evalExpr (TP.Call f args) = undefined
+evalExpr (TP.Call fname args) = undefined
+
+withVar :: String -> Interpreter a -> Interpreter a
+withVar s interp = Interpreter $ \(Env m f) -> do
+  ref <- newIORef Null
+  let m' = Map.insert s ref m
+  run interp (Env m' f)
+
+withVars :: [String] -> Interpreter a -> Interpreter a
+withVars vars interp = foldr withVar interp vars
+
+evalStatements :: Interpreter a -> [TP.Statement] -> Interpreter a
+evalStatements = foldr evalStatement
+
+evalStatement :: TP.Statement -> Interpreter a -> Interpreter a
+evalStatement (TP.VariableDeclaration names) next = withVars names next
+evalStatement (TP.Output expr) next = do
+  v <- evalExpr expr
+  s <- liftIO $ output v
+  _ <- liftIO $ putStrLn s
+  next
+  where
+    output :: Value -> IO String
+    output (Integer i) = pure $ show i
+    output (Record m) = do
+      fields <- forM (Map.toList m) $ \(field, value) -> do
+        v <- output value
+        pure $ field ++ ": " ++ v
+      pure $ intercalate ", " fields
+    output (Cell (CellValue ref)) = do
+      v <- readIORef ref
+      s <- output v
+      pure $ "&{" ++ s ++ "}"
+    output Null = pure "<null>"
+evalStatement (TP.If cond tblock fblock) next = undefined
+evalStatement (TP.Return expr) _ = do
+  val <- maybe (pure Null) evalExpr expr
+  pure val
+evalStatement (TP.Assignment lhs rhs) next = undefined
+evalStatement (TP.Expression expr) next = undefined
+evalStatement (TP.While cond block) next = undefined
+evalStatement (TP.Block stms) next = undefined
+evalStatement (TP.Error err) next = undefined
