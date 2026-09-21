@@ -5,7 +5,12 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import qualified Parser.TipParser as TP
 
-data Value = Integer Int | String String | Record (Map String Value) | Cell (IORef Value) | Undef
+data Value = Integer Int | Record (Map String Value) | Cell CellValue | Null deriving (Show)
+
+newtype CellValue = CellValue (IORef Value)
+
+instance Show CellValue where
+  show _ = "Cell (<ioref>)"
 
 type Error = String
 
@@ -57,6 +62,11 @@ put var value = Interpreter $ \env@(Env m) -> do
 panic :: String -> Interpreter a
 panic = Interpreter . const . pure . Left
 
+uncell :: Value -> Interpreter Value
+uncell (Cell (CellValue ref)) = do
+  liftIO $ readIORef ref
+uncell value = pure value
+
 -- TODO: Alas, again, the allure of using recursion scheme. Must... resist...
 evalExpr :: TP.Expression -> Interpreter Value
 evalExpr (TP.Int i) = pure $ Integer i
@@ -77,7 +87,7 @@ evalExpr (TP.Binary op lhs rhs) = do
 evalExpr (TP.Unary TP.Dereference (TP.Id name)) = get name
 evalExpr (TP.Unary TP.AddressOf (TP.Id name)) = do
   addr <- getAddr name
-  pure $ Cell addr
+  pure $ Cell (CellValue addr)
 evalExpr (TP.Unary op v) = do
   x <- evalExpr v
   evalUnOp op x
@@ -87,7 +97,22 @@ evalExpr (TP.Unary op v) = do
 evalExpr (TP.Alloc expr) = do
   ev <- evalExpr expr
   ref <- liftIO $ newIORef ev
-  pure $ Cell ref
+  pure $ Cell $ CellValue ref
+evalExpr (TP.Record bindings) = do
+  Record . Map.fromList <$> traverse go bindings
+  where
+    go (name, expr) = do
+      v <- evalExpr expr
+      pure (name, v)
+evalExpr (TP.RecordAccess e s) = do
+  v <- evalExpr e
+  case v of
+    (Record m) -> case Map.lookup s m of
+      Just fv -> pure fv
+      Nothing -> do
+        cv <- uncell v
+        panic $ "no such field " ++ s ++ " in " ++ show cv
+    _ -> do
+      cv <- uncell v
+      panic $ "looked up field " ++ s ++ " in non-record value " ++ show cv
 evalExpr (TP.Call f args) = undefined
-evalExpr (TP.Record bindings) = undefined
-evalExpr (TP.RecordAccess r field) = undefined
