@@ -15,7 +15,9 @@ instance Show CellValue where
 
 type Error = String
 
-newtype Env = Env (Map String (IORef Value))
+data Function = Function [String] [TP.Located TP.Statement]
+
+data Env = Env (Map String (IORef Value)) (Map String Function)
 
 newtype Interpreter a = Interpreter {run :: Env -> IO (Either Error a)}
 
@@ -43,16 +45,16 @@ liftIO :: IO a -> Interpreter a
 liftIO action = Interpreter $ \_ -> Right <$> action
 
 withVar :: String -> Interpreter a -> Interpreter a
-withVar s interp = Interpreter $ \(Env m) -> do
+withVar s interp = Interpreter $ \(Env m f) -> do
   ref <- newIORef Null
   let m' = Map.insert s ref m
-  run interp (Env m')
+  run interp (Env m' f)
 
 withVars :: [String] -> Interpreter a -> Interpreter a
 withVars vars interp = foldr withVar interp vars
 
 getAddr :: String -> Interpreter (IORef Value)
-getAddr var = Interpreter $ \(Env m) -> pure $ case Map.lookup var m of
+getAddr var = Interpreter $ \(Env m _) -> pure $ case Map.lookup var m of
   Nothing -> Left $ "invalid variable " ++ var
   Just v -> Right v
 
@@ -64,7 +66,7 @@ get var = Interpreter $ \env -> do
     Right ref -> Right <$> readIORef ref
 
 put :: String -> Value -> Interpreter ()
-put var value = Interpreter $ \env@(Env m) -> do
+put var value = Interpreter $ \env@(Env m _) -> do
   case Map.lookup var m of
     Nothing -> run (panic $ "no variable named " ++ var ++ " in scope") env
     Just ref -> Right <$> writeIORef ref value
