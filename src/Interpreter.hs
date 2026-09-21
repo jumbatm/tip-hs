@@ -1,5 +1,6 @@
 module Interpreter where
 
+import Control.Monad
 import Data.IORef
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -40,6 +41,15 @@ instance Monad Interpreter where
 
 liftIO :: IO a -> Interpreter a
 liftIO action = Interpreter $ \_ -> Right <$> action
+
+withVar :: String -> Interpreter a -> Interpreter a
+withVar s interp = Interpreter $ \(Env m) -> do
+  ref <- newIORef Null
+  let m' = Map.insert s ref m
+  run interp (Env m')
+
+withVars :: [String] -> Interpreter a -> Interpreter a
+withVars vars interp = foldr withVar interp vars
 
 getAddr :: String -> Interpreter (IORef Value)
 getAddr var = Interpreter $ \(Env m) -> pure $ case Map.lookup var m of
