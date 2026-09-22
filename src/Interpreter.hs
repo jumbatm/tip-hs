@@ -1,10 +1,12 @@
 module Interpreter where
 
 import Control.Monad
+import Data.Functor.Identity
 import Data.IORef
 import Data.List
 import Data.Map (Map)
 import qualified Data.Map as Map
+import qualified Parser.Internal as TP
 import qualified Parser.TipParser as TP
 
 data Value = Integer Int | Record (Map String Value) | Cell CellValue | Null deriving (Show)
@@ -132,6 +134,15 @@ withVar s interp = Interpreter $ \(Env m f) -> do
 
 withVars :: [String] -> Interpreter a -> Interpreter a
 withVars vars interp = foldr withVar interp vars
+
+evaluate :: String -> Either String (IO Value)
+evaluate prog = case runIdentity $ TP.runParser TP.tipProgramP prog of
+  TP.ParseError _ loc e -> Left $ "Parse error at " ++ show loc ++ ": expected " ++ show e
+  TP.ParseOk _ (p, _) -> Right $ do
+    evalProgram p
+
+evalProgram :: TP.TipProgram -> IO Value
+evalProgram ast = undefined
 
 evalStatements :: [TP.Statement] -> Interpreter ()
 evalStatements = foldr (\stm next -> evalStatement stm next (\_ -> pure ())) (pure ())
