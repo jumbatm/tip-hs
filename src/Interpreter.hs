@@ -133,12 +133,12 @@ withVar s interp = Interpreter $ \(Env m f) -> do
 withVars :: [String] -> Interpreter a -> Interpreter a
 withVars vars interp = foldr withVar interp vars
 
-evalStatements :: Interpreter a -> [TP.Statement] -> Interpreter a
-evalStatements = foldr evalStatement
+evalStatements :: [TP.Statement] -> Interpreter ()
+evalStatements = foldr (\stm next -> evalStatement stm next (\_ -> pure ())) (pure ())
 
-evalStatement :: TP.Statement -> Interpreter a -> Interpreter a
-evalStatement (TP.VariableDeclaration names) next = withVars names next
-evalStatement (TP.Output expr) next = do
+evalStatement :: TP.Statement -> Interpreter a -> (Value -> Interpreter a) -> Interpreter a
+evalStatement (TP.VariableDeclaration names) next _ = withVars names next
+evalStatement (TP.Output expr) next _ = do
   v <- evalExpr expr
   s <- liftIO $ output v
   _ <- liftIO $ putStrLn s
@@ -156,12 +156,12 @@ evalStatement (TP.Output expr) next = do
       s <- output v
       pure $ "&{" ++ s ++ "}"
     output Null = pure "<null>"
-evalStatement (TP.If cond tblock fblock) next = undefined
-evalStatement (TP.Return expr) _ = do
+evalStatement (TP.If cond tblock fblock) next ret = undefined
+evalStatement (TP.Return expr) _ ret = do
   val <- maybe (pure Null) evalExpr expr
-  pure val
-evalStatement (TP.Assignment lhs rhs) next = undefined
-evalStatement (TP.Expression expr) next = undefined
-evalStatement (TP.While cond block) next = undefined
-evalStatement (TP.Block stms) next = undefined
-evalStatement (TP.Error err) next = undefined
+  ret val
+evalStatement (TP.Assignment lhs rhs) next ret = undefined
+evalStatement (TP.Expression expr) next ret = undefined
+evalStatement (TP.While cond block) next ret = undefined
+evalStatement (TP.Block stms) next ret = undefined
+evalStatement (TP.Error err) next ret = undefined
