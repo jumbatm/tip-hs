@@ -22,9 +22,6 @@ data Function = Function [String] [TP.Located TP.Statement]
 
 data Env = Env (Map String (IORef Value)) (Map String Function)
 
-newEnv :: Env
-newEnv = Env Map.empty Map.empty
-
 newtype Interpreter a = Interpreter {run :: Env -> IO (Either Error a)}
 
 instance Functor Interpreter where
@@ -126,26 +123,48 @@ evalExpr (TP.RecordAccess e s) = do
       panic $ "looked up field " ++ s ++ " in non-record value " ++ show cv
 evalExpr (TP.Call fname args) = undefined
 
-withVar :: String -> Interpreter a -> Interpreter a
-withVar s interp = Interpreter $ \(Env m f) -> do
-  ref <- newIORef Null
+withVar :: Value -> String -> Interpreter a -> Interpreter a
+withVar v s interp = Interpreter $ \(Env m f) -> do
+  ref <- newIORef v
   let m' = Map.insert s ref m
   run interp (Env m' f)
 
 withVars :: [String] -> Interpreter a -> Interpreter a
-withVars vars interp = foldr withVar interp vars
+withVars vars interp = foldr (withVar Null) interp vars
 
-evaluate :: String -> Either String (IO Value)
+evaluate :: String -> IO (Either String Value)
 evaluate prog = case runIdentity $ TP.runParser TP.tipProgramP prog of
-  TP.ParseError _ loc e -> Left $ "Parse error at " ++ show loc ++ ": expected " ++ show e
-  TP.ParseOk _ (p, _) -> Right $ do
-    evalProgram p
+  TP.ParseError _ loc e -> pure $ Left $ "Parse error at " ++ show loc ++ ": expected " ++ show e
+  TP.ParseOk _ (p, _) -> evalProgram p
 
-evalProgram :: TP.TipProgram -> IO Value
-evalProgram ast = undefined
+evalProgram :: TP.TipProgram -> IO (Either String Value)
+evalProgram ast =
+  let fns = buildProgram ast
+      env = Env Map.empty fns
+      main = Map.lookup "main" fns
+   in case main of
+        Nothing -> pure $ Left "missing main"
+        Just m -> do
+          run (evalFunction m []) env
+  where
+    buildProgram :: TP.TipProgram -> Map String Function
+    buildProgram (TP.TipProgram decls) = Map.fromList (fmap buildFunction decls)
+      where
+        buildFunction :: TP.Located TP.Function -> (String, Function)
+        buildFunction (TP.Located _ (TP.Function name args stmts)) = (name, Function args stmts)
 
-evalStatements :: [TP.Statement] -> Interpreter ()
-evalStatements = foldr (\stm next -> evalStatement stm next (\_ -> pure ())) (pure ())
+evalFunction :: Function -> [Value] -> Interpreter Value
+evalFunction (Function params stmts) args = do
+  withArguments params args (evalStatements unLocStmts)
+  where
+    withArguments :: [String] -> [Value] -> Interpreter a -> Interpreter a
+    withArguments [] [] next = next
+    withArguments (p : ps) (v : vs) next = withVar v p (withArguments ps vs next)
+    withArguments _ _ _ = panic "wrong number of arguments to function"
+    unLocStmts = map (\(TP.Located _ stmt) -> stmt) stmts
+
+evalStatements :: [TP.Statement] -> Interpreter Value
+evalStatements = foldr (\stm next -> evalStatement stm next pure) (pure Null)
 
 evalStatement :: TP.Statement -> Interpreter a -> (Value -> Interpreter a) -> Interpreter a
 evalStatement (TP.VariableDeclaration names) next _ = withVars names next
