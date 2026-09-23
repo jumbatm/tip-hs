@@ -6,11 +6,9 @@ import Parser.CharParser (CharParserState (..), getPos)
 import Parser.Internal
 import Parser.TipLexer
 
-newtype TipProgram = TipProgram [Located Decl] deriving (Show)
+newtype TipProgram = TipProgram [Located Function] deriving (Show)
 
-data Decl
-  = Identifier String
-  | Function String [String] [Located Statement]
+data Function = Function String [String] [Located Statement]
   deriving (Show, Eq)
 
 data Statement
@@ -129,7 +127,7 @@ blockP = Block <$> braces (many statementP)
 returnP :: TipParser Statement
 returnP = Return <$> (keyword "return" *> optional expressionP)
 
-functionP :: TipParser Decl
+functionP :: TipParser Function
 functionP =
   Function
     <$> identifier
