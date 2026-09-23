@@ -191,7 +191,9 @@ evalStatement (TP.Return expr) _ ret = do
   val <- maybe (pure Null) evalExpr expr
   ret val
 evalStatement (TP.Assignment lhs rhs) next ret = undefined
-evalStatement (TP.Expression expr) next ret = undefined
+evalStatement (TP.Expression expr) next _ = do
+  _ <- evalExpr expr
+  next
 evalStatement (TP.While cond block) next ret = undefined
 evalStatement (TP.Block stms) next ret = undefined
 evalStatement (TP.Error err) next ret = undefined
