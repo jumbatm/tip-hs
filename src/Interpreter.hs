@@ -153,6 +153,9 @@ evalProgram ast =
         buildFunction :: TP.Located TP.Function -> (String, Function)
         buildFunction (TP.Located _ (TP.Function name args stmts)) = (name, Function args stmts)
 
+evalStatements :: [TP.Statement] -> Interpreter a -> (Value -> Interpreter a) -> Interpreter a
+evalStatements stmts after ret = foldr (\stm next -> evalStatement stm next ret) after stmts
+
 evalFunction :: Function -> [Value] -> Interpreter Value
 evalFunction (Function params stmts) args = do
   withArguments params args (evalStatements unLocStmts (pure Null) pure)
@@ -162,9 +165,6 @@ evalFunction (Function params stmts) args = do
     withArguments (p : ps) (v : vs) next = withVar v p (withArguments ps vs next)
     withArguments _ _ _ = panic "wrong number of arguments to function"
     unLocStmts = map (\(TP.Located _ stmt) -> stmt) stmts
-
-evalStatements :: [TP.Statement] -> Interpreter Value
-evalStatements = foldr (\stm next -> evalStatement stm next pure) (pure Null)
 
 evalStatement :: TP.Statement -> Interpreter a -> (Value -> Interpreter a) -> Interpreter a
 evalStatement (TP.VariableDeclaration names) next _ = withVars names next
