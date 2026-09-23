@@ -6,6 +6,7 @@ import Data.IORef
 import Data.List
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Maybe
 import qualified Parser.Internal as TP
 import qualified Parser.TipParser as TP
 
@@ -186,7 +187,14 @@ evalStatement (TP.Output expr) next _ = do
       s <- output v
       pure $ "&{" ++ s ++ "}"
     output Null = pure "<null>"
-evalStatement (TP.If cond tblock fblock) next ret = undefined
+evalStatement (TP.If cond tblock fblock) next ret = do
+  v <- evalExpr cond
+  case v of
+    Integer 1 -> evalStatements tblock next ret
+    Integer _ -> evalStatements (fromMaybe [] fblock) next ret
+    _ -> do
+      v' <- uncell v
+      panic $ "invalid condition " ++ show v'
 evalStatement (TP.Return expr) _ ret = do
   val <- maybe (pure Null) evalExpr expr
   ret val
