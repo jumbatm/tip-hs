@@ -6,6 +6,7 @@ import Data.IORef
 import Data.List
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Maybe
 import qualified Parser.Internal as TP
 import qualified Parser.TipParser as TP
 
@@ -64,6 +65,17 @@ put var value = Interpreter $ \env@(Env m _) -> do
   case Map.lookup var m of
     Nothing -> run (panic $ "no variable named " ++ var ++ " in scope") env
     Just ref -> Right <$> writeIORef ref value
+
+getEnv :: Interpreter Env
+getEnv = Interpreter $ \env -> pure $ Right env
+
+withEnv :: Env -> Interpreter a -> Interpreter a
+withEnv env interp = Interpreter $ \_ -> run interp env
+
+withNewScope :: Interpreter a -> Interpreter a
+withNewScope interp = do
+  env <- getEnv
+  withEnv env interp
 
 panic :: String -> Interpreter a
 panic = Interpreter . const . pure . Left
@@ -153,18 +165,18 @@ evalProgram ast =
         buildFunction :: TP.Located TP.Function -> (String, Function)
         buildFunction (TP.Located _ (TP.Function name args stmts)) = (name, Function args stmts)
 
+evalStatements :: [TP.Statement] -> Interpreter a -> (Value -> Interpreter a) -> Interpreter a
+evalStatements stmts after ret = foldr (\stm next -> evalStatement stm next ret) after stmts
+
 evalFunction :: Function -> [Value] -> Interpreter Value
 evalFunction (Function params stmts) args = do
-  withArguments params args (evalStatements unLocStmts)
+  withArguments params args (evalStatements unLocStmts (pure Null) pure)
   where
     withArguments :: [String] -> [Value] -> Interpreter a -> Interpreter a
     withArguments [] [] next = next
     withArguments (p : ps) (v : vs) next = withVar v p (withArguments ps vs next)
     withArguments _ _ _ = panic "wrong number of arguments to function"
     unLocStmts = map (\(TP.Located _ stmt) -> stmt) stmts
-
-evalStatements :: [TP.Statement] -> Interpreter Value
-evalStatements = foldr (\stm next -> evalStatement stm next pure) (pure Null)
 
 evalStatement :: TP.Statement -> Interpreter a -> (Value -> Interpreter a) -> Interpreter a
 evalStatement (TP.VariableDeclaration names) next _ = withVars names next
@@ -186,12 +198,21 @@ evalStatement (TP.Output expr) next _ = do
       s <- output v
       pure $ "&{" ++ s ++ "}"
     output Null = pure "<null>"
-evalStatement (TP.If cond tblock fblock) next ret = undefined
+evalStatement (TP.If cond tblock fblock) next ret = do
+  v <- evalExpr cond
+  case v of
+    Integer 1 -> evalStatements tblock next ret
+    Integer _ -> evalStatements (fromMaybe [] fblock) next ret
+    _ -> do
+      v' <- uncell v
+      panic $ "invalid condition " ++ show v'
 evalStatement (TP.Return expr) _ ret = do
   val <- maybe (pure Null) evalExpr expr
   ret val
 evalStatement (TP.Assignment lhs rhs) next ret = undefined
-evalStatement (TP.Expression expr) next ret = undefined
+evalStatement (TP.Expression expr) next _ = do
+  _ <- evalExpr expr
+  next
 evalStatement (TP.While cond block) next ret = undefined
-evalStatement (TP.Block stms) next ret = undefined
+evalStatement (TP.Block stms) next ret = withNewScope (evalStatements stms next ret)
 evalStatement (TP.Error err) next ret = undefined
