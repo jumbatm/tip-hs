@@ -157,6 +157,15 @@ evalProgram ast =
 evalStatements :: [TP.Statement] -> Interpreter a -> (Value -> Interpreter a) -> Interpreter a
 evalStatements stmts after ret = foldr (\stm next -> evalStatement stm next ret) after stmts
 
+withNewScope :: (Interpreter a -> Interpreter a) -> Interpreter a -> Interpreter a
+withNewScope block next = Interpreter $ \env -> do
+  let afterBlock = withEnv env next
+  run (block afterBlock) env
+  where
+    -- Run an interpreter with a specific environment rather than the outer one.
+    withEnv :: Env -> Interpreter a -> Interpreter a
+    withEnv env interp = Interpreter $ \_ -> run interp env
+
 evalFunction :: Function -> [Value] -> Interpreter Value
 evalFunction (Function params stmts) args = do
   withArguments params args (evalStatements unLocStmts (pure Null) pure)
@@ -203,5 +212,5 @@ evalStatement (TP.Expression expr) next _ = do
   _ <- evalExpr expr
   next
 evalStatement (TP.While cond block) next ret = undefined
-evalStatement (TP.Block stms) next ret = undefined
+evalStatement (TP.Block stms) next ret = withNewScope (\n -> evalStatements stms n ret) next
 evalStatement (TP.Error err) next ret = undefined
