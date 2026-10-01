@@ -74,6 +74,13 @@ uncell (Cell (CellValue ref)) = do
   liftIO $ readIORef ref
 uncell value = pure value
 
+bool :: Value -> Interpreter a -> Interpreter a -> Interpreter a
+bool (Integer 1) t _ = t
+bool (Integer _) _ f = f
+bool v _ _ = do
+  v' <- uncell v
+  panic $ "invalid condition " ++ show v'
+
 -- TODO: Alas, again, the allure of using recursion scheme. Must... resist...
 evalExpr :: TP.Expression -> Interpreter Value
 evalExpr (TP.Int i) = pure $ Integer i
@@ -198,19 +205,30 @@ evalStatement (TP.Output expr) next _ = do
     output Null = pure "<null>"
 evalStatement (TP.If cond tblock fblock) next ret = do
   v <- evalExpr cond
-  case v of
-    Integer 1 -> evalStatements tblock next ret
-    Integer _ -> evalStatements (fromMaybe [] fblock) next ret
-    _ -> do
-      v' <- uncell v
-      panic $ "invalid condition " ++ show v'
+  bool v (evalStatements tblock next ret) (evalStatements (fromMaybe [] fblock) next ret)
 evalStatement (TP.Return expr) _ ret = do
   val <- maybe (pure Null) evalExpr expr
   ret val
-evalStatement (TP.Assignment lhs rhs) next ret = undefined
+evalStatement (TP.Assignment lhs rhs) next _ = do
+  l <- evalExpr lhs
+  case l of
+    Cell (CellValue c) -> do
+      r <- evalExpr rhs
+      liftIO $ writeIORef c r
+      next
+    _ -> panic $ "cannot assign to " <> show l
 evalStatement (TP.Expression expr) next _ = do
   _ <- evalExpr expr
   next
-evalStatement (TP.While cond block) next ret = undefined
+evalStatement (TP.While cond block) next ret = go
+  where
+    go = do
+      c <- evalExpr cond
+      let runBlock = do
+            evalStatements block go ret
+      bool c runBlock next
 evalStatement (TP.Block stms) next ret = withNewScope (\n -> evalStatements stms n ret) next
-evalStatement (TP.Error err) next ret = undefined
+evalStatement (TP.Error err) _ _ = do
+  v <- evalExpr err
+  u <- uncell v
+  panic $ show u
