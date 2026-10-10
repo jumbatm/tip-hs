@@ -4,6 +4,7 @@ import Data.Maybe
 import Parser
 import System.Environment (getArgs)
 import System.Exit (exitFailure)
+import TipInterpreter
 
 main :: IO ()
 main = do
@@ -18,9 +19,8 @@ main = do
     else do
       let file = fromJust filearg
       contents <- readFile file
-      case parse contents of
-        ParseOk _ ast -> putStrLn $ show ast
-        ParseError _ loc msg -> do
-          putStrLn $ "Parsing failure at " ++ file ++ ":" ++ (show loc) ++ ": expected " ++ (show msg)
-          exitFailure
+      result <- evaluate contents
+      putStrLn $ case result of
+        Right v -> show v
+        Left err -> err
   return ()

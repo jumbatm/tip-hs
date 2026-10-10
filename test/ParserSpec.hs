@@ -113,14 +113,14 @@ spec = do
 
   describe "expression statements" $ do
     it "accepts function calls as statements" $ do
-      testRunParser statementP "foo();" `shouldBe` ParseOk Consumed (Expression (Call (Id "foo") []), "")
+      testRunParser statementP "foo();" `shouldBe` ParseOk Consumed (Located (SourceLocation (1, 1)) (Expression (Located (SourceLocation (1, 1)) (Call (Located (SourceLocation (1, 1)) (Id "foo")) []))), "")
 
   describe "expressions" $ do
     it "allows for multiple chained binary expressions" $ do
-      testRunParser expressionP "1+2+3" `shouldBe` ParseOk Consumed (Binary Add (Binary Add (Int 1) (Int 2)) (Int 3), "")
+      testRunParser expressionP "1+2+3" `shouldBe` ParseOk Consumed (Located (SourceLocation (1, 4)) (Binary Add (Located (SourceLocation (1, 2)) (Binary Add (Located (SourceLocation (1, 1)) (Int 1)) (Located (SourceLocation (1, 3)) (Int 2)))) (Located (SourceLocation (1, 5)) (Int 3))), "")
 
     it "is left recursive" $ do
-      testRunParser expressionP "3-2-1" `shouldBe` ParseOk Consumed (Binary Subtract (Binary Subtract (Int 3) (Int 2)) (Int 1), "")
+      testRunParser expressionP "3-2-1" `shouldBe` ParseOk Consumed (Located (SourceLocation (1, 4)) (Binary Subtract (Located (SourceLocation (1, 2)) (Binary Subtract (Located (SourceLocation (1, 1)) (Int 3)) (Located (SourceLocation (1, 3)) (Int 2)))) (Located (SourceLocation (1, 5)) (Int 1))), "")
 
   describe "manyTill" $ do
     let p = testRunParser (manyTill (char 'A') (char ';'))
