@@ -3,10 +3,10 @@ module ExamplesSpec where
 import Control.Monad
 import Data.List (stripPrefix)
 import Parser.Internal
-import Parser.TipParser
 import System.Directory
 import System.FilePath
 import Test.Hspec
+import TipInterpreter
 
 getXfailReason :: String -> Maybe String
 getXfailReason = stripPrefix "// XFAIL:" . head . lines
@@ -16,17 +16,16 @@ spec = do
   let examplesDirectory = "test/examples"
   tipFiles <- runIO $ filter (isExtensionOf "tip") <$> listDirectory examplesDirectory
 
-  describe "can parse examples" $ do
+  describe "can parse and run examples" $ do
     forM_ tipFiles $ \file ->
       it file $ do
         contents <- readFile $ examplesDirectory </> file
         let failReason = getXfailReason contents
-        case parse contents of
-          ParseOk _ _ast -> case failReason of
+        result <- evaluate contents
+        case result of
+          Right value -> case failReason of
             Nothing -> pure ()
             Just reason -> expectationFailure $ "unexpected pass" ++ reason
-          ParseError _ loc msg ->
-            let message = show loc ++ ": expected " ++ show msg
-             in case getXfailReason contents of
-                  Just reason -> pendingWith (reason ++ ": " ++ message)
-                  Nothing -> expectationFailure message
+          Left err -> case getXfailReason contents of
+            Just reason -> pendingWith (reason ++ ": " ++ err)
+            Nothing -> expectationFailure err
