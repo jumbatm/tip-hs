@@ -49,13 +49,14 @@ atLoc (Located loc _) = Located loc
 tipProgramP :: TipParser TipProgram
 tipProgramP = TipProgram <$> (ws *> some (annotateLoc functionP))
 
+relOpP :: TipParser (Located BinOp)
+relOpP = annotateLoc $ GreaterThan <$ symbol ">" <|> Equal <$ keyword "=="
+
 termOpP :: TipParser (Located BinOp)
 termOpP =
   annotateLoc $
     Add <$ symbol "+"
       <|> Subtract <$ symbol "-"
-      <|> GreaterThan <$ symbol ">"
-      <|> Equal <$ keyword "=="
 
 factorOpP :: TipParser (Located BinOp)
 factorOpP =
@@ -67,7 +68,10 @@ buildBinary :: Located BinOp -> Located Expression -> Located Expression -> Loca
 buildBinary (Located loc op) lhs rhs = Located loc $ Binary op lhs rhs
 
 expressionP :: TipParser (Located Expression)
-expressionP = chainl1 termP (buildBinary <$> termOpP)
+expressionP = chainl1 simpleExprP (buildBinary <$> relOpP)
+
+simpleExprP :: TipParser (Located Expression)
+simpleExprP = chainl1 termP (buildBinary <$> termOpP)
 
 unOpP :: TipParser UnOp
 unOpP = Negate <$ char '-' <|> Dereference <$ char '*'
