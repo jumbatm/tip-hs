@@ -31,6 +31,8 @@ data BinOp = Add | Subtract | Multiply | Divide | GreaterThan | Equal deriving (
 
 data Expression
   = Int Int
+  | NullLiteral
+  | InputLiteral
   | Id String
   | Binary BinOp (Located Expression) (Located Expression)
   | Unary UnOp (Located Expression)
@@ -97,8 +99,8 @@ factorP = foldl (flip ($)) <$> atomP <*> many trailing <|> (buildUnary <$> annot
 atomP :: TipParser (Located Expression)
 atomP =
   annotateLoc (keyword "alloc" *> (Alloc <$> factorP))
+    <|> annotateLoc (intP <|> recordP <|> (NullLiteral <$ try (keyword "null")) <|> (InputLiteral <$ try (keyword "input")))
     <|> (buildAlloc <$> optional (annotateLoc (char '&')) <*> annotateLoc idP)
-    <|> annotateLoc (intP <|> recordP)
     <|> parens expressionP
   where
     buildAlloc addr x = case addr of
