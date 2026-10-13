@@ -106,12 +106,10 @@ uncell (LValue (CellValue ref)) = do
   liftIO $ readIORef ref
 uncell (RValue value) = pure value
 
-bool :: Value -> Interpreter a -> Interpreter a -> Interpreter a
-bool (RValue (Integer 1)) t _ = t
-bool (RValue (Integer _)) _ f = f
-bool v _ _ = do
-  v' <- uncell v
-  panic $ "invalid condition " ++ show v'
+bool :: RValue -> Interpreter a -> Interpreter a -> Interpreter a
+bool (Integer 1) t _ = t
+bool (Integer _) _ f = f
+bool v _ _ = panic $ "invalid condition " ++ show v
 
 evalExpr :: TP.Expression -> Interpreter Value
 evalExpr (TP.Int i) = pure $ RValue $ Integer i
@@ -257,7 +255,8 @@ evalStatement (TP.Output (TP.Located loc expr)) pos next _ = do
   next
 evalStatement (TP.If (TP.Located loc cond) tblock fblock) pos next ret = do
   v <- evalExpr cond
-  bool v (evalStatements tblock next ret) (evalStatements (fromMaybe [] fblock) next ret)
+  v' <- uncell v
+  bool v' (evalStatements tblock next ret) (evalStatements (fromMaybe [] fblock) next ret)
 evalStatement (TP.Return optExpr) pos _ ret = do
   val <- maybe (pure Null) (\(TP.Located _ expr) -> evalExpr expr >>= uncell) optExpr
   ret val
@@ -280,7 +279,7 @@ evalStatement (TP.Expression (TP.Located _ expr)) pos next _ = do
 evalStatement (TP.While (TP.Located _ cond) block) pos next ret = go
   where
     go = do
-      c <- evalExpr cond
+      c <- evalExpr cond >>= uncell
       let runBlock = do
             evalStatements block go ret
       bool c runBlock next
