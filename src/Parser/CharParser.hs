@@ -32,13 +32,6 @@ satisfy p = Parser f
 satisfyWhile :: (Monad m) => (Char -> Bool) -> CharParser m [Char]
 satisfyWhile = many . satisfy
 
-ws :: (Monad m) => CharParser m [Char]
-ws = satisfyWhile isSpace
-
--- Allow any amount of whitespace after the parser.
-lexeme :: (Monad m) => CharParser m a -> CharParser m a
-lexeme p = p <* ws
-
 nextChar :: (Monad m) => CharParser m Char
 nextChar = satisfy (const True)
 
@@ -55,13 +48,7 @@ label msg parser = Parser $ \s -> do
 
 infixl 2 <?>
 
-char :: (Monad m) => Char -> CharParser m Char
-char e = lexeme $ satisfy (== e) <?> [e]
-
 string :: (Monad m) => String -> Parser CharParserState m String
 string s = traverse (\c -> satisfy (== c)) s <?> s
-
-keyword :: (Monad m) => String -> CharParser m [Char]
-keyword w = lexeme $ traverse char w <?> w
 
 -- traverse f w = sequenceA $ fmap f w
