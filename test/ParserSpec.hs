@@ -122,6 +122,9 @@ spec = do
     it "is left recursive" $ do
       testRunParser expressionP "3-2-1" `shouldBe` ParseOk Consumed (Located (SourceLocation (1, 4)) (Binary Subtract (Located (SourceLocation (1, 2)) (Binary Subtract (Located (SourceLocation (1, 1)) (Int 3)) (Located (SourceLocation (1, 3)) (Int 2)))) (Located (SourceLocation (1, 5)) (Int 1))), "")
 
+    it "correctly parses comparisons as having low precedence" $ do
+      testRunParser expressionP "a > b + c" `shouldBe` ParseOk Consumed (Located (SourceLocation (1, 3)) (Binary GreaterThan (Located (SourceLocation (1, 1)) (Id "a")) (Located (SourceLocation (1, 7)) (Binary Add (Located (SourceLocation (1, 5)) (Id "b")) (Located (SourceLocation (1, 9)) (Id "c"))))), "")
+
   describe "manyTill" $ do
     let p = testRunParser (manyTill (char 'A') (char ';'))
     it "parses 0 items" $ do
