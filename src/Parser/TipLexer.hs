@@ -4,7 +4,7 @@ import Control.Applicative
 import Data.Char
 import Data.Functor.Identity
 import Data.Set (singleton)
-import Parser.CharParser (CharParser, CharParserState (..), satisfy, satisfyWhile, string, (<?>))
+import Parser.CharParser
 import Parser.Internal
 
 type TipParser = CharParser Identity
