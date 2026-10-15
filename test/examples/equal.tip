@@ -1,3 +1,4 @@
+// XFAIL: no main function
 equal(a,b){
     return a==b;
 }

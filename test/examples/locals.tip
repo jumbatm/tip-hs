@@ -1,3 +1,4 @@
+// XFAIL: no main function
 g(a){
     return *a;
 }

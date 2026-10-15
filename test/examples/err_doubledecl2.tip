@@ -1,3 +1,4 @@
+// XFAIL: no main function
 
 f(x) {
 var x, z;
