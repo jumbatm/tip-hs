@@ -21,7 +21,7 @@ spec = do
       it file $ do
         contents <- readFile $ examplesDirectory </> file
         let failReason = getXfailReason contents
-        result <- evaluate contents
+        result <- evaluateWithInput contents (pure "0")
         case result of
           Right value -> case failReason of
             Nothing -> pure ()

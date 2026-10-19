@@ -9,6 +9,7 @@ import qualified Data.Map as Map
 import Data.Maybe
 import qualified Parser.Internal as TP
 import qualified Parser.TipParser as TP
+import Text.Read (readMaybe)
 
 data Value = LValue CellValue | RValue RValue deriving (Show)
 
@@ -39,7 +40,7 @@ data Frame = Frame TP.SourceLocation String
 
 newtype Context = Context [Frame]
 
-data Env = Env Context (Map String (IORef RValue)) (Map String Function)
+data Env = Env {context :: Context, vars :: Map String (IORef RValue), functions :: Map String Function, input :: IO String}
 
 newtype Interpreter a = Interpreter {run :: Env -> IO (Either Error a)}
 
@@ -69,9 +70,15 @@ liftIO action = Interpreter $ \_ -> Right <$> action
 getEnv :: Interpreter Env
 getEnv = Interpreter $ \env -> pure $ Right env
 
+getInput :: Interpreter String
+getInput = do
+  env <- getEnv
+  str <- liftIO $ input env
+  pure str
+
 lookupAddr :: String -> Interpreter (Maybe (IORef RValue))
 lookupAddr var = do
-  (Env _ m _) <- getEnv
+  (Env _ m _ _) <- getEnv
   pure $ Map.lookup var m
 
 getAddr :: String -> Interpreter (IORef RValue)
@@ -82,7 +89,7 @@ getAddr var = do
     Nothing -> panic ("invalid variable " ++ var)
 
 get :: String -> Interpreter Value
-get var = Interpreter $ \env@(Env _ _ functions) -> do
+get var = Interpreter $ \env@(Env _ _ functions _) -> do
   eref <- run (getAddr var) env
   case eref of
     Right ref -> pure $ Right $ LValue $ CellValue ref
@@ -98,7 +105,7 @@ put var value = do
     Just ref -> liftIO $ writeIORef ref value
 
 panic :: String -> Interpreter a
-panic msg = Interpreter $ \(Env (Context frames) _ _) -> do
+panic msg = Interpreter $ \(Env (Context frames) _ _ _) -> do
   pure $ Left $ Error msg frames
 
 uncell :: Value -> Interpreter RValue
@@ -168,30 +175,40 @@ evalExpr (TP.Call (TP.Located loc fname) args) = do
     FunctionValue fn@(Function name _ _) -> withFrame (Frame loc ("call to " <> name)) $ RValue <$> evalFunction fn argValues
     _ -> do
       panic $ "invalid function value " <> show functionValue
+evalExpr TP.InputLiteral = do
+  _ <- liftIO $ putStr "input >"
+  line <- getInput
+  case readMaybe line :: Maybe Int of
+    Just number -> pure $ RValue $ Integer number
+    Nothing -> panic "invalid input"
+evalExpr TP.NullLiteral = pure (RValue Null)
 
 withVar :: RValue -> String -> Interpreter a -> Interpreter a
-withVar v s interp = Interpreter $ \(Env c m f) -> do
+withVar v s interp = Interpreter $ \(Env c m f i) -> do
   ref <- newIORef v
   let m' = Map.insert s ref m
-  run interp (Env c m' f)
+  run interp (Env c m' f i)
 
 withVars :: [String] -> Interpreter a -> Interpreter a
 withVars vars interp = foldr (withVar Null) interp vars
 
 withFrame :: Frame -> Interpreter a -> Interpreter a
-withFrame fr interp = Interpreter $ \(Env (Context c) m f) -> do
+withFrame fr interp = Interpreter $ \(Env (Context c) m f i) -> do
   let newContext = Context (fr : c)
-  run interp (Env newContext m f)
+  run interp (Env newContext m f i)
 
 evaluate :: String -> IO (Either String RValue)
-evaluate prog = case runIdentity $ TP.runParser TP.tipProgramP prog of
-  TP.ParseError _ loc e -> pure $ Left $ "Parse error at " ++ show loc ++ ": expected " ++ show e
-  TP.ParseOk _ (p, _) -> evalProgram p
+evaluate prog = evaluateWithInput prog getLine
 
-evalProgram :: TP.TipProgram -> IO (Either String RValue)
-evalProgram ast =
+evaluateWithInput :: String -> IO String -> IO (Either String RValue)
+evaluateWithInput prog input = case runIdentity $ TP.runParser TP.tipProgramP prog of
+  TP.ParseError _ loc e -> pure $ Left $ "Parse error at " ++ show loc ++ ": expected " ++ show e
+  TP.ParseOk _ (p, _) -> evalProgram p input
+
+evalProgram :: TP.TipProgram -> IO String -> IO (Either String RValue)
+evalProgram ast input =
   let fns = buildProgram ast
-      env = Env (Context []) Map.empty fns
+      env = Env (Context []) Map.empty fns input
       main = Map.lookup "main" fns
    in case main of
         Nothing -> pure $ Left "missing main"
@@ -229,8 +246,8 @@ evalFunction (Function _ params stmts) args = withFreshEnv $ do
     withArguments _ _ _ = panic "wrong number of arguments to function"
 
     withFreshEnv :: Interpreter a -> Interpreter a
-    withFreshEnv interp = Interpreter $ \(Env c _ f) -> do
-      run interp (Env c Map.empty f)
+    withFreshEnv interp = Interpreter $ \(Env c _ f i) -> do
+      run interp (Env c Map.empty f i)
 
 output :: RValue -> IO String
 output (Integer i) = pure $ show i
