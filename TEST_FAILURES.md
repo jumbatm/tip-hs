@@ -1,59 +1,58 @@
 # Example test failures
 
-Baseline: 2026-10-15, commit `lwpqlokk` "XFAIL examples without main" (on top of `orovstwr` "Add null and input literals").
-Result of `stack test`: **136 examples, 54 failures, 21 pending**. All 54 failures are in `ExamplesSpec`; `ParserSpec` is green.
+Baseline: 2026-10-20, working copy after `null`/`input` evaluation and the `// INPUT:` test directive were added. Previous baseline (2026-10-15, `lwpqlokk`): 54 failures.
 
-Failures are grouped by **root cause**, not by error text. Some error messages are misleading. For example, `no Add defined on Id "a" and Id "b"` is really a read of an uninitialised variable, because [`evalBinOp`](src/TipInterpreter.hs#L129) prints the operand *AST* and not the operand *values*.
+Result of `stack test`: **136 examples, 50 failures, 21 pending**. All 50 failures are in `ExamplesSpec`; `ParserSpec` is green. The 21 pending are the `// XFAIL: no main function` files.
+
+Failures are grouped by **root cause**, not by error text. Some error messages are misleading. For example, `no Add defined on Id "a" and Id "b"` is really a read of an uninitialised variable, because [`evalBinOp`](src/TipInterpreter.hs#L136) prints the operand *AST* and not the operand *values*.
 
 > [!NOTE]
-> Line anchors in the links below refer to the source as of the baseline commit and will drift as the code changes.
+> Line anchors in the links below refer to the source as of the baseline and will drift as the code changes.
 
 ## Summary
 
-| # | Bucket | Kind | Count |
-|---|--------|------|------:|
-| 1 | `null` / `input` literals not handled by the interpreter | Interpreter gap | 31 |
-| 2 | `*` binds looser than `.` field access | Parser bug | 5 |
-| 3 | `==` / `>` only defined on integers | Interpreter gap | 4 |
-| 4 | Reads of uninitialised variables | Program/semantics | 4 |
-| 5 | `main` takes parameters | Interpreter gap | 2 |
-| 6 | Meant to be rejected by static analysis | Expected error | 6 |
-| 7 | Intentional `error` statement | Expected error | 1 |
-| 8 | Not a runnable program (parser test only) | Not runnable | 1 |
-| | **Total** | | **54** |
+| # | Bucket | Kind | Count | Δ since 2026-10-15 |
+|---|--------|------|------:|---:|
+| 1 | Missing `// INPUT:` directive | Test data gap | 23 | was 31 (null/input literals) |
+| 2 | `*` binds looser than `.` field access | Parser bug | 5 | — |
+| 3 | `==` / `>` only defined on integers | Interpreter gap | 6 | +2 (a1, map) |
+| 4 | Reads of uninitialised variables | Program/semantics | 4 | — |
+| 5 | `main` takes parameters | Interpreter gap | 2 | — |
+| 6 | Meant to be rejected by static analysis | Expected error | 6 | — |
+| 7 | Intentional runtime error | Expected error | 3 | +2 (ptr6, nullpointer) |
+| 8 | Not a runnable program (parser test only) | Not runnable | 1 | — |
+| | **Total** | | **50** | −4 |
+
+Newly passing since the last baseline: rectype, a4, a6, err_unify1.
 
 ```mermaid
 flowchart LR
-  F["54 failures"] --> B1["1: null/input literal (31)"]
+  F["50 failures"] --> B1["1: missing INPUT (23)"]
   F --> B2["2: deref vs field precedence (5)"]
-  F --> B3["3: non-int comparison (4)"]
+  F --> B3["3: non-int comparison (6)"]
   F --> B4["4: uninitialised reads (4)"]
   F --> B5["5: main params (2)"]
   F --> B6["6: should be statically rejected (6)"]
-  F --> B7["7: intentional error (1)"]
+  F --> B7["7: intentional runtime error (3)"]
   F --> B8["8: not runnable (1)"]
 ```
 
 ---
 
-## 1. `null` / `input` literals not handled by the interpreter (31)
+## 1. Missing `// INPUT:` directive (23)
 
-**Symptom:** `uncaught exception: PatternMatchFail … Non-exhaustive patterns in function evalExpr`
+**Symptom:** `error: invalid input`
 
-**Cause:** `orovstwr` added `NullLiteral` and `InputLiteral` to [`Expression`](src/Parser/TipParser.hs#L32-L43), but [`evalExpr`](src/TipInterpreter.hs#L114-L170) has no cases for them. Before that commit, the same files failed with `invalid variable null` / `invalid variable input`.
+**Cause:** [`evalExpr TP.InputLiteral`](src/TipInterpreter.hs#L178-L183) now reads from the `IO String` passed to [`evaluateWithInput`](src/TipInterpreter.hs#L201). The harness builds that from `// INPUT:` lines via [`mockInputs`](test/ExamplesSpec.hs#L31-L40), but no example has one yet. Once the inputs run out, `mockInputs` returns `""`, `readMaybe` rejects it, and the interpreter panics. Missing inputs therefore fail fast rather than blocking on stdin.
 
-| Uses | Files |
-|------|-------|
-| `input` only (22) | block, constants1, constants2, factorial_iterative, factorial_recursive, fib, foo, func, if_short_if, interval0, interval1, interval3, liveness, mono, reaching, rec, slicing, symbolic1, symbolic2, testdiv, verybusy, while_short_if |
-| `null` only (8) | a1, a4, a6, err_unify1, map, nullpointer, ptr6, rectype |
-| both (1) | shape |
+**Files:** block, constants1, constants2, factorial_iterative, factorial_recursive, fib, foo, func, if_short_if, interval0, interval1, interval3, liveness, mono, reaching, rec, shape, slicing, symbolic1, symbolic2, testdiv, verybusy, while_short_if
+
+cfa and interval2 also mention `input`, but only in comments, so they pass.
 
 > [!WARNING]
-> This bucket hides other failures underneath it. Once the literals are implemented:
-> - `input` needs an input source. The harness currently provides none, so these tests will block on stdin or hit EOF.
-> - `nullpointer.tip` probably dereferences null on purpose.
-> - `err_unify1.tip` is a type-error test (bucket 6 material).
-> - More of these files may end up in buckets 3 and 4.
+> Once inputs are supplied, some of these may move to other buckets, for example if a program reads an uninitialised variable (bucket 4) or loops depending on the value chosen.
+
+The `putStr "input >"` in `InputLiteral` also leaks into the hspec output.
 
 ## 2. Parser: unary `*` binds looser than `.` field access (5)
 
@@ -69,13 +68,13 @@ flowchart LR
 | record5 | `*n.c.b` | `((*n).c).b` → 2 |
 | record6 | `*n.c.bbb` | missing field, meant to error (`// ERROR`) |
 
-This is probably what the "WIP: Add test for precedence issue" commit (`syqzrzvz`) was getting at. record6 will still fail after the fix, but with `no such field bbb`. That is correct behaviour, so it would then move to bucket 7.
+record6 will still fail after the fix, but with `no such field bbb`. That is correct behaviour, so it would then move to bucket 7.
 
-## 3. `==` / `>` only defined on integers (4)
+## 3. `==` / `>` only defined on integers (6)
 
 **Symptom:** `no Equal defined on Id "x" and Id "y"` (and similar)
 
-**Cause:** [`evalBinOp`](src/TipInterpreter.hs#L122-L129) only matches `Integer`/`Integer`. TIP allows `==` on pointers and on function values.
+**Cause:** [`evalBinOp`](src/TipInterpreter.hs#L129-L136) only matches `Integer`/`Integer`. TIP allows `==` on pointers, on functions, and against `null`.
 
 | File | Comparison | Expected after fix |
 |------|-----------|--------------------|
@@ -83,12 +82,16 @@ This is probably what the "WIP: Add test for precedence issue" commit (`syqzrzvz
 | cmpfunc | `f == g` | pass |
 | err_cmpfunc2 | `f == g` (different arities) | pass at runtime; it's only a *type* error |
 | err_cmpfunc3 | `f == g` (different arities) | pass at runtime; it's only a *type* error |
+| a1 | `l == null` (list traversal in `map`) | pass |
+| map | `l == null` (list traversal in `map`) | pass |
 
-Pointer equality needs an identity comparison on `IORef`. `IORef` has an `Eq` instance, but `CellValue` doesn't derive it yet. Function equality needs either a name comparison or an identity token.
+a1 and map were previously hidden behind the missing `null` literal.
+
+Pointer equality needs an identity comparison on `IORef`. `IORef` has an `Eq` instance, but `CellValue` doesn't derive it yet. Function equality needs either a name comparison or an identity token. `null` comparisons need `Null` to be equal to itself and unequal to any address.
 
 ## 4. Reads of uninitialised variables (4)
 
-**Symptom:** various; the value read is the `Null` from [`withVars`](src/TipInterpreter.hs#L178-L179)
+**Symptom:** various; the value read is the `Null` from [`withVars`](src/TipInterpreter.hs#L192-L193)
 
 | File | Read | Error |
 |------|------|-------|
@@ -105,7 +108,7 @@ These are analysis examples (available expressions, Andersen, Steensgaard) and w
 
 **Files:** cfg (`main(n)`), parametrized_main (`main(x, y)`)
 
-**Cause:** [`evalProgram`](src/TipInterpreter.hs#L199) always calls `main` with `[]`. In TIP, `main`'s parameters are read from the input stream, so this depends on the same input source that bucket 1 needs.
+**Cause:** [`evalProgram`](src/TipInterpreter.hs#L216) always calls `main` with `[]`. In TIP, `main`'s parameters are read from the input stream. The input source now exists, so this only needs `evalProgram` to read one value per parameter (plus `// INPUT:` lines in both files).
 
 ## 6. Meant to be rejected by static analysis (6)
 
@@ -120,11 +123,19 @@ The interpreter fails on these at runtime with a sensible error. The programs ar
 | err_notlocal2 | `*f = 10` on a function | `no Dereference defined for FunctionValue Function f` |
 | err_cmpfunc | `f > g` (type error) | `no GreaterThan defined on Id "f" and Id "g"` |
 
-Related files that are counted in other buckets: err_unify1 (1), err_cmpfunc2/3 (3), record6 (2).
+Related files that are counted in other buckets: err_cmpfunc2/3 (3), record6 (2). err_unify1 now passes at runtime; its error is purely a type error.
 
-## 7. Intentional `error` statement (1)
+## 7. Intentional runtime error (3)
 
-**File:** error.tip, which runs `error 1+2;` and gets `error: 3`. This is correct behaviour. The harness just can't express "expected to fail with X".
+These fail at runtime, and that is the correct behaviour. The harness just can't express "expected to fail with X".
+
+| File | What happens | Error |
+|------|--------------|-------|
+| error | `error 1+2;` | `error: 3` |
+| nullpointer | `n = null; *q = n;` makes `p` null, then `*p = r` | `no Dereference defined for Null` |
+| ptr6 | `p = q` copies the uninitialised `q`, then `x = *p` | `no Dereference defined for Null` |
+
+ptr6 is a pointer-analysis example that was never meant to run, so it overlaps with bucket 4.
 
 ## 8. Not a runnable program (1)
 
@@ -136,7 +147,8 @@ Related files that are counted in other buckets: err_unify1 (1), err_cmpfunc2/3 
 
 These fixes clear the most failures:
 
-- **Evaluate `null` / `input`** in [`evalExpr`](src/TipInterpreter.hs#L114-L170) (bucket 1, 31 failures). `input` also needs the test harness to supply input, and that same input source would fix bucket 5.
+- **Add `// INPUT:` lines** to the bucket 1 files (23 failures). This is test data only, no code changes.
+- **Support `==` on pointers, functions and `null`** in [`evalBinOp`](src/TipInterpreter.hs#L129-L136) (bucket 3, 6 failures).
 - **Fix `*` / `.` precedence** in [`factorP`](src/Parser/TipParser.hs#L85) (bucket 2, 5 failures).
-- **Support `==` on pointers and functions** in [`evalBinOp`](src/TipInterpreter.hs#L122-L129) (bucket 3, 4 failures).
-- **Expected-error tests:** an `// EXPECT-ERROR: <substring>` mechanism in [ExamplesSpec.hs](test/ExamplesSpec.hs) would let buckets 6 and 7 become real tests that check the error, instead of being skipped with XFAIL.
+- **Read `main`'s arguments from input** in [`evalProgram`](src/TipInterpreter.hs#L216) (bucket 5, 2 failures).
+- **Expected-error tests:** an `// EXPECT-ERROR: <substring>` directive in [ExamplesSpec.hs](test/ExamplesSpec.hs), next to `// XFAIL:` and `// INPUT:`, would let buckets 6 and 7 (and arguably 4 and 8) become real tests that check the error, instead of failing.
