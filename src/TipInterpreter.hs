@@ -133,7 +133,8 @@ evalExpr (TP.Binary op (TP.Located _ lhs) (TP.Located _ rhs)) = do
       TP.Divide -> a `div` b
       TP.GreaterThan -> if a > b then 1 else 0
       TP.Equal -> if a == b then 1 else 0
-    evalBinOp _ _ _ = panic $ "no " ++ show op ++ " defined on " ++ show lhs ++ " and " ++ show rhs
+    evalBinOp _ l r = do
+      panic $ "no " ++ show op ++ " defined on " ++ show l ++ " and " ++ show r
 evalExpr (TP.Unary op (TP.Located _ v)) = do
   x <- evalExpr v
   evalUnOp op x
