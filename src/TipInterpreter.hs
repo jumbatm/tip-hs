@@ -184,19 +184,19 @@ evalExpr TP.InputLiteral = do
     Nothing -> panic "invalid input"
 evalExpr TP.NullLiteral = pure (RValue Null)
 
+local :: (Env -> Env) -> Interpreter a -> Interpreter a
+local modifyEnv interp = Interpreter $ \env -> run interp (modifyEnv env)
+
 withVar :: RValue -> String -> Interpreter a -> Interpreter a
-withVar v s interp = Interpreter $ \(Env c m f i) -> do
-  ref <- newIORef v
-  let m' = Map.insert s ref m
-  run interp (Env c m' f i)
+withVar v s interp = do
+  ref <- liftIO $ newIORef v
+  local (\env -> env {vars = Map.insert s ref (vars env)}) interp
 
 withVars :: [String] -> Interpreter a -> Interpreter a
 withVars vars interp = foldr (withVar Null) interp vars
 
 withFrame :: Frame -> Interpreter a -> Interpreter a
-withFrame fr interp = Interpreter $ \(Env (Context c) m f i) -> do
-  let newContext = Context (fr : c)
-  run interp (Env newContext m f i)
+withFrame fr = local (\env@(Env (Context frames) _ _ _) -> env {context = Context (fr : frames)})
 
 evaluate :: String -> IO (Either String RValue)
 evaluate prog = case TP.parseProgram prog of
@@ -244,8 +244,7 @@ evalFunction (Function _ params stmts) args = withFreshEnv $ do
     withArguments _ _ _ = panic "wrong number of arguments to function"
 
     withFreshEnv :: Interpreter a -> Interpreter a
-    withFreshEnv interp = Interpreter $ \(Env c _ f i) -> do
-      run interp (Env c Map.empty f i)
+    withFreshEnv = local (\env -> env {vars = Map.empty})
 
 output :: RValue -> IO String
 output (Integer i) = pure $ show i
