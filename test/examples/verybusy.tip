@@ -1,3 +1,4 @@
+// CHECK-ONLY
 main() {
     var x,a,b;
     x = input;

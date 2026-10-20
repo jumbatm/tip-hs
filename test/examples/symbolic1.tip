@@ -1,3 +1,4 @@
+// CHECK-ONLY
 double(v) {
   return 2*v;
 }

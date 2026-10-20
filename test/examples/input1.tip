@@ -1,3 +1,4 @@
+// CHECK-ONLY
 // XFAIL: no main function
 test(){
     var a;

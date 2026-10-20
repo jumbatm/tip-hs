@@ -1,3 +1,4 @@
+// CHECK-ONLY
 foo(p,x) { 
     var f,q; 
     if (*p==0) { f=1; } 

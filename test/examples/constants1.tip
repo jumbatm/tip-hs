@@ -1,3 +1,4 @@
+// CHECK-ONLY
 /*f(a,b){
     return 5*a + 7*b;
 }*/

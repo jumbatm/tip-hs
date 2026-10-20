@@ -198,12 +198,9 @@ withFrame fr interp = Interpreter $ \(Env (Context c) m f i) -> do
   run interp (Env newContext m f i)
 
 evaluate :: String -> IO (Either String RValue)
-evaluate prog = evaluateWithInput prog getLine
-
-evaluateWithInput :: String -> IO String -> IO (Either String RValue)
-evaluateWithInput prog input = case runIdentity $ TP.runParser TP.tipProgramP prog of
+evaluate prog = case TP.parseProgram prog of
   TP.ParseError _ loc e -> pure $ Left $ "Parse error at " ++ show loc ++ ": expected " ++ show e
-  TP.ParseOk _ (p, _) -> evalProgram p input
+  TP.ParseOk _ p -> evalProgram p getLine
 
 evalProgram :: TP.TipProgram -> IO String -> IO (Either String RValue)
 evalProgram ast input =

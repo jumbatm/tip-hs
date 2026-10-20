@@ -1,3 +1,6 @@
+// CHECK-ONLY
+// CHECK-ONLY
+
 f(a,b){
     return g(a,b);
 }

@@ -1,3 +1,4 @@
+// CHECK-ONLY
 ite(n){
     var f;
     f = 1;

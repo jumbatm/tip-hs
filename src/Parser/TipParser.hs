@@ -160,5 +160,8 @@ functionP =
 runParser :: TipParser a -> String -> Identity (ParseResult (a, CharParserState))
 runParser p s = unParser p (CharParserState s (SourceLocation (1, 1)))
 
+parseProgram :: String -> ParseResult TipProgram
+parseProgram prog = fst <$> runIdentity (runParser tipProgramP prog)
+
 parse :: String -> ParseResult TipProgram
 parse = (fst <$>) . runIdentity . runParser tipProgramP

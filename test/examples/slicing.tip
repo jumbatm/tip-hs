@@ -1,3 +1,4 @@
+// CHECK-ONLY
 foo(m){
     m = m*2;
     return m;
