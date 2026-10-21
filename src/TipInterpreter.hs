@@ -15,7 +15,7 @@ data Value = LValue CellValue | RValue RValue deriving (Show)
 
 data RValue = Integer Int | Record (Map String RValue) | FunctionValue Function | AddressOf CellValue | Null deriving (Show)
 
-newtype CellValue = CellValue (IORef RValue)
+newtype CellValue = CellValue (IORef Variable)
 
 instance Show CellValue where
   show _ = "Cell (<ioref>)"
@@ -38,9 +38,11 @@ instance Show Function where
 
 data Frame = Frame TP.SourceLocation String
 
+data Variable = Live RValue | Dead deriving (Show)
+
 newtype Context = Context [Frame]
 
-data Env = Env {context :: Context, variables :: Map String (IORef RValue), functions :: Map String Function, input :: IO String}
+data Env = Env {context :: Context, variables :: Map String CellValue, functions :: Map String Function, input :: IO String}
 
 newtype Interpreter a = Interpreter {run :: Env -> IO (Either Error a)}
 
@@ -76,12 +78,12 @@ getInput = do
   str <- liftIO $ input env
   pure str
 
-lookupAddr :: String -> Interpreter (Maybe (IORef RValue))
+lookupAddr :: String -> Interpreter (Maybe CellValue)
 lookupAddr var = do
   (Env _ m _ _) <- getEnv
   pure $ Map.lookup var m
 
-getAddr :: String -> Interpreter (IORef RValue)
+getAddr :: String -> Interpreter CellValue
 getAddr var = do
   found <- lookupAddr var
   case found of
@@ -92,7 +94,7 @@ get :: String -> Interpreter Value
 get var = Interpreter $ \env@(Env _ _ functions _) -> do
   eref <- run (getAddr var) env
   case eref of
-    Right ref -> pure $ Right $ LValue $ CellValue ref
+    Right ref -> pure $ Right $ LValue ref
     Left err -> pure $ case Map.lookup var functions of
       Just fn -> Right $ RValue $ FunctionValue fn
       Nothing -> Left err
@@ -102,16 +104,22 @@ put var value = do
   found <- lookupAddr var
   case found of
     Nothing -> panic $ "no variable named " ++ var ++ " in scope"
-    Just ref -> liftIO $ writeIORef ref value
+    Just (CellValue ref) -> liftIO $ writeIORef ref (Live value)
 
 panic :: String -> Interpreter a
 panic msg = Interpreter $ \(Env (Context frames) _ _ _) -> do
   pure $ Left $ Error msg frames
 
-uncell :: Value -> Interpreter RValue
-uncell (LValue (CellValue ref)) = do
-  liftIO $ readIORef ref
-uncell (RValue value) = pure value
+readValue :: Value -> Interpreter RValue
+readValue (LValue (CellValue ref)) = do
+  var <- liftIO $ readIORef ref
+  readVar var
+readValue (RValue value) = pure value
+
+readVar :: Variable -> Interpreter RValue
+readVar var = case var of
+  Live l -> pure l
+  Dead -> panic $ "read of dead variable " <> show var
 
 bool :: RValue -> Interpreter a -> Interpreter a -> Interpreter a
 bool (Integer 1) t _ = t
@@ -122,8 +130,8 @@ evalExpr :: TP.Expression -> Interpreter Value
 evalExpr (TP.Int i) = pure $ RValue $ Integer i
 evalExpr (TP.Id name) = get name
 evalExpr (TP.Binary op (TP.Located _ lhs) (TP.Located _ rhs)) = do
-  l <- evalExpr lhs >>= uncell
-  r <- evalExpr rhs >>= uncell
+  l <- evalExpr lhs >>= readValue
+  r <- evalExpr rhs >>= readValue
   RValue <$> evalBinOp op l r
   where
     evalBinOp bop (Integer a) (Integer b) = pure . Integer $ case bop of
@@ -142,7 +150,7 @@ evalExpr (TP.Unary op (TP.Located _ v)) = do
     evalUnOp :: TP.UnOp -> Value -> Interpreter Value
     evalUnOp TP.AddressOf (LValue cell) = pure $ RValue $ AddressOf cell
     evalUnOp rop other = do
-      r <- uncell other
+      r <- readValue other
       evalUnOpRValue rop r
 
     evalUnOpRValue :: TP.UnOp -> RValue -> Interpreter Value
@@ -150,18 +158,18 @@ evalExpr (TP.Unary op (TP.Located _ v)) = do
     evalUnOpRValue TP.Dereference (AddressOf ref) = pure $ LValue ref
     evalUnOpRValue _ value = panic $ "no " ++ show op ++ " defined for " ++ show value
 evalExpr (TP.Alloc (TP.Located _ expr)) = do
-  ev <- evalExpr expr >>= uncell
-  ref <- liftIO $ newIORef ev
+  ev <- evalExpr expr >>= readValue
+  ref <- liftIO $ newIORef (Live ev)
   pure $ RValue $ AddressOf (CellValue ref)
 evalExpr (TP.Record bindings) = do
   RValue . Record . Map.fromList <$> traverse go bindings
   where
     go :: (String, TP.Located TP.Expression) -> Interpreter (String, RValue)
     go (name, TP.Located _ expr) = do
-      v <- evalExpr expr >>= uncell
+      v <- evalExpr expr >>= readValue
       pure (name, v)
 evalExpr (TP.RecordAccess (TP.Located _ e) (TP.Located _ s)) = do
-  v <- evalExpr e >>= uncell
+  v <- evalExpr e >>= readValue
   case v of
     (Record m) -> case Map.lookup s m of
       Just fv -> pure $ RValue fv
@@ -170,8 +178,8 @@ evalExpr (TP.RecordAccess (TP.Located _ e) (TP.Located _ s)) = do
     _ -> do
       panic $ "looked up field " ++ s ++ " in non-record value " ++ show v
 evalExpr (TP.Call (TP.Located loc fname) args) = do
-  argValues <- traverse (\(TP.Located _ x) -> evalExpr x >>= uncell) args
-  functionValue <- evalExpr fname >>= uncell
+  argValues <- traverse (\(TP.Located _ x) -> evalExpr x >>= readValue) args
+  functionValue <- evalExpr fname >>= readValue
   case functionValue of
     FunctionValue fn@(Function name _ _) -> withFrame (Frame loc ("call to " <> name)) $ RValue <$> evalFunction fn argValues
     _ -> do
@@ -189,8 +197,8 @@ local modifyEnv interp = Interpreter $ \env -> run interp (modifyEnv env)
 
 withVar :: RValue -> String -> Interpreter a -> Interpreter a
 withVar v s interp = do
-  ref <- liftIO $ newIORef v
-  local (\env -> env {variables = Map.insert s ref (variables env)}) interp
+  ref <- liftIO $ newIORef (Live v)
+  local (\env -> env {variables = Map.insert s (CellValue ref) (variables env)}) interp
 
 withVars :: [String] -> Interpreter a -> Interpreter a
 withVars vars interp = foldr (withVar Null) interp vars
@@ -254,29 +262,33 @@ output (Record m) = do
     pure $ field ++ ": " ++ v
   pure $ intercalate ", " fields
 output (AddressOf (CellValue ref)) = do
-  v <- readIORef ref
-  s <- output v
-  pure $ "&{" ++ s ++ "}"
+  var <- readIORef ref
+  case var of
+    Live v -> do
+      s <- output v
+      pure $ "&{" ++ s ++ "}"
+    Dead -> do
+      pure "<DEAD>"
 output Null = pure "<null>"
 output (FunctionValue fn) = pure $ show fn
 
 evalStatement :: TP.Statement -> TP.SourceLocation -> Interpreter a -> (RValue -> Interpreter a) -> Interpreter a
 evalStatement (TP.VariableDeclaration names) pos next _ = withVars names next
 evalStatement (TP.Output (TP.Located loc expr)) pos next _ = do
-  v <- evalExpr expr >>= uncell
+  v <- evalExpr expr >>= readValue
   s <- liftIO $ output v
   _ <- liftIO $ putStrLn s
   next
 evalStatement (TP.If (TP.Located loc cond) tblock fblock) pos next ret = do
   v <- evalExpr cond
-  v' <- uncell v
+  v' <- readValue v
   bool v' (evalStatements tblock next ret) (evalStatements (fromMaybe [] fblock) next ret)
 evalStatement (TP.Return optExpr) pos _ ret = do
-  val <- maybe (pure Null) (\(TP.Located _ expr) -> evalExpr expr >>= uncell) optExpr
+  val <- maybe (pure Null) (\(TP.Located _ expr) -> evalExpr expr >>= readValue) optExpr
   ret val
 evalStatement (TP.Assignment (TP.Located lloc lhs) (TP.Located rloc rhs)) pos next _ = do
   r <- withFrame (Frame rloc "right hand side of assignment expression") $ evalExpr rhs
-  rr <- uncell r
+  rr <- readValue r
   withFrame (Frame lloc "left hand side of assignment expression") $ do
     case lhs of
       (TP.Id name) -> do
@@ -284,7 +296,7 @@ evalStatement (TP.Assignment (TP.Located lloc lhs) (TP.Located rloc rhs)) pos ne
       _ -> do
         ll <- evalExpr lhs
         case ll of
-          LValue (CellValue c) -> liftIO $ writeIORef c rr
+          LValue (CellValue c) -> liftIO $ writeIORef c (Live rr)
           _ -> panic $ "cannot assign to " <> show ll
   next
 evalStatement (TP.Expression (TP.Located _ expr)) pos next _ = do
@@ -293,13 +305,13 @@ evalStatement (TP.Expression (TP.Located _ expr)) pos next _ = do
 evalStatement (TP.While (TP.Located _ cond) block) pos next ret = go
   where
     go = do
-      c <- evalExpr cond >>= uncell
+      c <- evalExpr cond >>= readValue
       let runBlock = do
             evalStatements block go ret
       bool c runBlock next
 evalStatement (TP.Block stms) pos next ret = withBlock (\n -> evalStatements stms n ret) next
 evalStatement (TP.Error (TP.Located _ err)) pos _ _ = do
   v <- evalExpr err
-  u <- uncell v
+  u <- readValue v
   msg <- liftIO $ output u
   panic msg
