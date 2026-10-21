@@ -28,7 +28,7 @@ The broad plan is to implement an interpreter, then continue onto implementing a
 
 ### Interpreter
 
-- [ ] Interpreter monad / applicative
+- [x] Interpreter monad / applicative
 - [ ] Run on all example programs
 - [ ] Golden file testing for interpreter state
 
