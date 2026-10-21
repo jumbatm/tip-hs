@@ -1,6 +1,7 @@
 module TipInterpreter where
 
 import Control.Monad
+import Data.Foldable
 import Data.Functor.Identity
 import Data.IORef
 import Data.List
@@ -15,7 +16,7 @@ data Value = LValue CellValue | RValue RValue deriving (Show)
 
 data RValue = Integer Int | Record (Map String RValue) | FunctionValue Function | AddressOf CellValue | Null deriving (Show)
 
-newtype CellValue = CellValue (IORef Variable)
+newtype CellValue = CellValue (IORef Variable) deriving (Eq)
 
 instance Show CellValue where
   show _ = "Cell (<ioref>)"
@@ -226,18 +227,24 @@ evalProgram ast input =
 evalStatements :: [TP.Located TP.Statement] -> Interpreter a -> (RValue -> Interpreter a) -> Interpreter a
 evalStatements stmts after ret = foldr (\(TP.Located loc stm) next -> evalStatement stm loc next ret) after stmts
 
-withBlock :: (Interpreter a -> Interpreter a) -> Interpreter a -> Interpreter a
-withBlock block next = Interpreter $ \env -> do
-  let afterBlock = withEnv env next
-  run (block afterBlock) env
+cleanupEnv :: Env -> Env -> IO ()
+cleanupEnv inner outer = traverse_ (\(CellValue ref) -> writeIORef ref Dead) expiredLocals
   where
-    -- Run an interpreter with a specific environment rather than the outer one.
-    withEnv :: Env -> Interpreter a -> Interpreter a
-    withEnv env interp = Interpreter $ \_ -> run interp env
+    expiredLocals = Map.differenceWith (\i o -> if o == i then Nothing else Just i) (variables inner) (variables outer)
+
+withBlock :: (Interpreter a -> (RValue -> Interpreter a) -> Interpreter a) -> Interpreter a -> (RValue -> Interpreter a) -> Interpreter a
+withBlock block next ret = Interpreter $ \env -> do
+  let cleanupThenNext = finishEnv env next
+  let cleanupThenRet v = finishEnv env (ret v)
+  run (block cleanupThenNext cleanupThenRet) env
+  where
+    finishEnv :: Env -> Interpreter a -> Interpreter a
+    finishEnv outer interp = Interpreter $ \inner -> do
+      cleanupEnv inner outer
+      run interp outer
 
 evalFunction :: Function -> [RValue] -> Interpreter RValue
-evalFunction (Function _ params stmts) args = withFreshEnv $ do
-  withArguments params args (evalStatements stmts (pure Null) pure)
+evalFunction (Function _ params stmts) args = withFreshEnv $ withBlock (\next ret -> withArguments params args (evalStatements stmts next ret)) (pure Null) pure
   where
     withArguments :: [String] -> [RValue] -> Interpreter a -> Interpreter a
     withArguments [] [] next = next
@@ -302,7 +309,7 @@ evalStatement (TP.While (TP.Located _ cond) block) pos next ret = go
       let runBlock = do
             evalStatements block go ret
       bool c runBlock next
-evalStatement (TP.Block stms) pos next ret = withBlock (\n -> evalStatements stms n ret) next
+evalStatement (TP.Block stms) pos next ret = withBlock (\n r -> evalStatements stms n r) next ret
 evalStatement (TP.Error (TP.Located _ err)) pos _ _ = do
   v <- evalExpr err
   u <- readValue v
