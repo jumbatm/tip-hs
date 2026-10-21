@@ -40,7 +40,7 @@ data Frame = Frame TP.SourceLocation String
 
 newtype Context = Context [Frame]
 
-data Env = Env {context :: Context, vars :: Map String (IORef RValue), functions :: Map String Function, input :: IO String}
+data Env = Env {context :: Context, variables :: Map String (IORef RValue), functions :: Map String Function, input :: IO String}
 
 newtype Interpreter a = Interpreter {run :: Env -> IO (Either Error a)}
 
@@ -190,7 +190,7 @@ local modifyEnv interp = Interpreter $ \env -> run interp (modifyEnv env)
 withVar :: RValue -> String -> Interpreter a -> Interpreter a
 withVar v s interp = do
   ref <- liftIO $ newIORef v
-  local (\env -> env {vars = Map.insert s ref (vars env)}) interp
+  local (\env -> env {variables = Map.insert s ref (variables env)}) interp
 
 withVars :: [String] -> Interpreter a -> Interpreter a
 withVars vars interp = foldr (withVar Null) interp vars
@@ -244,7 +244,7 @@ evalFunction (Function _ params stmts) args = withFreshEnv $ do
     withArguments _ _ _ = panic "wrong number of arguments to function"
 
     withFreshEnv :: Interpreter a -> Interpreter a
-    withFreshEnv = local (\env -> env {vars = Map.empty})
+    withFreshEnv = local (\env -> env {variables = Map.empty})
 
 output :: RValue -> IO String
 output (Integer i) = pure $ show i
