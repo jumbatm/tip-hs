@@ -99,13 +99,6 @@ get var = Interpreter $ \env@(Env _ _ functions _) -> do
       Just fn -> Right $ RValue $ FunctionValue fn
       Nothing -> Left err
 
-put :: String -> RValue -> Interpreter ()
-put var value = do
-  found <- lookupAddr var
-  case found of
-    Nothing -> panic $ "no variable named " ++ var ++ " in scope"
-    Just (CellValue ref) -> liftIO $ writeIORef ref (Live value)
-
 panic :: String -> Interpreter a
 panic msg = Interpreter $ \(Env (Context frames) _ _ _) -> do
   pure $ Left $ Error msg frames
@@ -119,7 +112,7 @@ readValue (RValue value) = pure value
 readVar :: Variable -> Interpreter RValue
 readVar var = case var of
   Live l -> pure l
-  Dead -> panic $ "read of dead variable " <> show var
+  Dead -> panic $ "read of dead variable"
 
 bool :: RValue -> Interpreter a -> Interpreter a -> Interpreter a
 bool (Integer 1) t _ = t
@@ -290,14 +283,14 @@ evalStatement (TP.Assignment (TP.Located lloc lhs) (TP.Located rloc rhs)) pos ne
   r <- withFrame (Frame rloc "right hand side of assignment expression") $ evalExpr rhs
   rr <- readValue r
   withFrame (Frame lloc "left hand side of assignment expression") $ do
-    case lhs of
-      (TP.Id name) -> do
-        put name rr
-      _ -> do
-        ll <- evalExpr lhs
-        case ll of
-          LValue (CellValue c) -> liftIO $ writeIORef c (Live rr)
-          _ -> panic $ "cannot assign to " <> show ll
+    l <- evalExpr lhs
+    case l of
+      LValue (CellValue var) -> do
+        var' <- liftIO $ readIORef var
+        case var' of
+          Live _ -> liftIO $ writeIORef var (Live rr)
+          Dead -> panic "write to dead memory"
+      RValue v -> panic $ "cannot assign to " <> show v
   next
 evalStatement (TP.Expression (TP.Located _ expr)) pos next _ = do
   _ <- evalExpr expr
