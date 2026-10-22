@@ -225,7 +225,7 @@ evalProgram ast input =
         buildFunction (TP.Located _ (TP.Function name args stmts)) = (name, Function name args stmts)
 
 evalStatements :: [TP.Located TP.Statement] -> Interpreter a -> (RValue -> Interpreter a) -> Interpreter a
-evalStatements stmts after ret = foldr (\(TP.Located loc stm) next -> evalStatement stm loc next ret) after stmts
+evalStatements stmts after ret = foldr (\(TP.Located loc stm) next -> evalStatement stm next ret) after stmts
 
 cleanupEnv :: Env -> Env -> IO ()
 cleanupEnv inner outer = traverse_ (\(CellValue ref) -> writeIORef ref Dead) expiredLocals
@@ -272,21 +272,24 @@ output (AddressOf (CellValue ref)) = do
 output Null = pure "<null>"
 output (FunctionValue fn) = pure $ show fn
 
-evalStatement :: TP.Statement -> TP.SourceLocation -> Interpreter a -> (RValue -> Interpreter a) -> Interpreter a
-evalStatement (TP.VariableDeclaration names) pos next _ = withVars names next
-evalStatement (TP.Output (TP.Located loc expr)) pos next _ = do
+evalStatement :: TP.Statement -> Interpreter a -> (RValue -> Interpreter a) -> Interpreter a
+evalStatement (TP.VariableDeclaration names) next _ = withVars names next
+evalStatement (TP.Output (TP.Located loc expr)) next _ = do
   v <- evalExpr expr >>= readValue
   s <- liftIO $ output v
   _ <- liftIO $ putStrLn s
   next
-evalStatement (TP.If (TP.Located loc cond) tblock fblock) pos next ret = do
+evalStatement (TP.If (TP.Located loc cond) (TP.Located _ tblock) lfblock) next ret = do
   v <- evalExpr cond
   v' <- readValue v
-  bool v' (evalStatements tblock next ret) (evalStatements (fromMaybe [] fblock) next ret)
-evalStatement (TP.Return optExpr) pos _ ret = do
+  let fb = case lfblock of
+        Just (TP.Located _ fblock) -> evalStatement fblock next ret
+        Nothing -> next
+  bool v' (evalStatement tblock next ret) fb
+evalStatement (TP.Return optExpr) _ ret = do
   val <- maybe (pure Null) (\(TP.Located _ expr) -> evalExpr expr >>= readValue) optExpr
   ret val
-evalStatement (TP.Assignment (TP.Located lloc lhs) (TP.Located rloc rhs)) pos next _ = do
+evalStatement (TP.Assignment (TP.Located lloc lhs) (TP.Located rloc rhs)) next _ = do
   r <- withFrame (Frame rloc "right hand side of assignment expression") $ evalExpr rhs
   rr <- readValue r
   withFrame (Frame lloc "left hand side of assignment expression") $ do
@@ -299,18 +302,18 @@ evalStatement (TP.Assignment (TP.Located lloc lhs) (TP.Located rloc rhs)) pos ne
           Dead -> panic "write to dead memory"
       RValue v -> panic $ "cannot assign to " <> show v
   next
-evalStatement (TP.Expression (TP.Located _ expr)) pos next _ = do
+evalStatement (TP.Expression (TP.Located _ expr)) next _ = do
   _ <- evalExpr expr
   next
-evalStatement (TP.While (TP.Located _ cond) block) pos next ret = go
+evalStatement (TP.While (TP.Located _ cond) (TP.Located _ block)) next ret = go
   where
     go = do
       c <- evalExpr cond >>= readValue
       let runBlock = do
-            evalStatements block go ret
+            evalStatement block go ret
       bool c runBlock next
-evalStatement (TP.Block stms) pos next ret = withBlock (\n r -> evalStatements stms n r) next ret
-evalStatement (TP.Error (TP.Located _ err)) pos _ _ = do
+evalStatement (TP.Block stms) next ret = withBlock (\n r -> evalStatements stms n r) next ret
+evalStatement (TP.Error (TP.Located _ err)) _ _ = do
   v <- evalExpr err
   u <- readValue v
   msg <- liftIO $ output u

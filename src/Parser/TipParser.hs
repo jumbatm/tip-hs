@@ -14,11 +14,11 @@ data Function = Function String [String] [Located Statement]
 data Statement
   = VariableDeclaration [String]
   | Output (Located Expression)
-  | If (Located Expression) [Located Statement] (Maybe [Located Statement])
+  | If (Located Expression) (Located Statement) (Maybe (Located Statement))
   | Return (Maybe (Located Expression))
   | Assignment (Located Expression) (Located Expression)
   | Expression (Located Expression)
-  | While (Located Expression) [Located Statement]
+  | While (Located Expression) (Located Statement)
   | Block [Located Statement]
   | Error (Located Expression)
   deriving (Show, Eq)
@@ -133,16 +133,14 @@ errorP :: Parser CharParserState Identity Statement
 errorP = Error <$> (keyword "error" *> expressionP)
 
 whileP :: TipParser Statement
-whileP = While <$> (keyword "while" *> parens expressionP) <*> braces (many statementP)
+whileP = While <$> (keyword "while" *> parens expressionP) <*> statementP
 
 ifP :: TipParser Statement
 ifP =
   If
     <$> (keyword "if" *> parens expressionP)
-    <*> statements
-    <*> optional (keyword "else" *> statements)
-  where
-    statements = (: []) <$> statementP <|> braces (many statementP)
+    <*> statementP
+    <*> optional (keyword "else" *> statementP)
 
 blockP :: TipParser Statement
 blockP = Block <$> braces (many statementP)
