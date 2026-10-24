@@ -282,10 +282,15 @@ evalStatement (TP.Output (TP.Located loc expr)) next _ = do
 evalStatement (TP.If (TP.Located loc cond) (TP.Located _ tblock) lfblock) next ret = do
   v <- evalExpr cond
   v' <- readValue v
-  let fb = case lfblock of
-        Just (TP.Located _ fblock) -> evalStatement fblock next ret
-        Nothing -> next
-  bool v' (evalStatement tblock next ret) fb
+  withBlock
+    ( \n r -> do
+        let fb = case lfblock of
+              Just (TP.Located _ fblock) -> evalStatement fblock n r
+              Nothing -> n
+        bool v' (evalStatement tblock n r) fb
+    )
+    next
+    ret
 evalStatement (TP.Return optExpr) _ ret = do
   val <- maybe (pure Null) (\(TP.Located _ expr) -> evalExpr expr >>= readValue) optExpr
   ret val
