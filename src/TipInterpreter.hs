@@ -320,7 +320,7 @@ evalStatement (TP.While (TP.Located _ cond) (TP.Located _ block)) next ret = go
               go
               ret
       bool c ifTrue next
-evalStatement (TP.Block stms) next ret = withBlock (\n r -> evalStatements stms n r) next ret
+evalStatement (TP.Block stms) next ret = withBlock (evalStatements stms) next ret
 evalStatement (TP.Error (TP.Located _ err)) _ _ = do
   v <- evalExpr err
   u <- readValue v
