@@ -1,10 +1,10 @@
 # Example test failures
 
-Baseline: 2026-10-20, working copy after the `// CHECK-ONLY` test directive was added. Previous baselines: 50 failures (2026-10-20, after `null`/`input` evaluation), 54 failures (2026-10-15, `lwpqlokk`).
+Baseline: 2026-10-24, `ulsnzoxw`, after dead-variable tombstoning and per-body scopes for `if`/`while`. The set of failing files is unchanged from the previous baseline; only some error messages changed. Previous baselines: 27 failures (2026-10-20, after the `// CHECK-ONLY` directive), 50 failures (2026-10-20, after `null`/`input` evaluation), 54 failures (2026-10-15, `lwpqlokk`).
 
 Result of `stack test`: **136 examples, 27 failures, 20 pending**. All 27 failures are in `ExamplesSpec`; `ParserSpec` is green. The 20 pending are the `// XFAIL: no main function` files.
 
-Failures are grouped by **root cause**, not by error text. Some error messages are misleading. For example, `no Add defined on Id "a" and Id "b"` is really a read of an uninitialised variable, because [`evalBinOp`](src/TipInterpreter.hs#L136) prints the operand *AST* and not the operand *values*.
+Failures are grouped by **root cause**, not by error text. Some error messages point away from the cause. For example, `no Add defined on Null and Null` is really a read of two uninitialised variables, because `var` initialises every variable to `Null`.
 
 > [!NOTE]
 > Line anchors in the links below refer to the source as of the baseline and will drift as the code changes.
@@ -20,9 +20,7 @@ Failures are grouped by **root cause**, not by error text. Some error messages a
 | 5 | Meant to be rejected by static analysis | Expected error | 6 | — |
 | 6 | Intentional runtime error | Expected error | 3 | — |
 | 7 | Not a runnable program (parser test only) | Not runnable | 1 | — |
-| | **Total** | | **27** | −23 |
-
-The previous "missing `// INPUT:` directive" bucket (23) is gone: those files are now marked `// CHECK-ONLY`. See [Parse-only examples](#parse-only-examples) below.
+| | **Total** | | **27** | — |
 
 ```mermaid
 flowchart LR
@@ -39,7 +37,7 @@ flowchart LR
 
 ## Parse-only examples
 
-`// CHECK-ONLY` makes [ExamplesSpec](test/ExamplesSpec.hs#L57) stop after [`parseProgram`](src/Parser/TipParser.hs#L163-L164) succeeds, without evaluating. 26 files carry it: the 23 former bucket-1 files, plus cfa and interval2 (which only mention `input` in comments and passed before) and input1.
+`// CHECK-ONLY` makes [ExamplesSpec](test/ExamplesSpec.hs#L57) stop after [`parseProgram`](src/Parser/TipParser.hs#L161-L162) succeeds, without evaluating. 26 files carry it: the 23 that used to fail for lack of an `// INPUT:` directive, plus cfa and interval2 (which only mention `input` in comments and passed before) and input1.
 
 **Files:** block, cfa, constants1, constants2, factorial_iterative, factorial_recursive, fib, foo, func, if_short_if, input1, interval0, interval1, interval2, interval3, liveness, mono, reaching, rec, shape, slicing, symbolic1, symbolic2, testdiv, verybusy, while_short_if
 
@@ -68,9 +66,9 @@ record6 will still fail after the fix, but with `no such field bbb`. That is cor
 
 ## 2. `==` / `>` only defined on integers (6)
 
-**Symptom:** `no Equal defined on Id "x" and Id "y"` (and similar)
+**Symptom:** `no Equal defined on AddressOf Cell (<ioref>) and Null` (and similar, with function values or two addresses)
 
-**Cause:** [`evalBinOp`](src/TipInterpreter.hs#L129-L136) only matches `Integer`/`Integer`. TIP allows `==` on pointers, on functions, and against `null`.
+**Cause:** [`evalBinOp`](src/TipInterpreter.hs#L131-L139) only matches `Integer`/`Integer`. TIP allows `==` on pointers, on functions, and against `null`.
 
 | File | Comparison | Expected after fix |
 |------|-----------|--------------------|
@@ -81,16 +79,16 @@ record6 will still fail after the fix, but with `no such field bbb`. That is cor
 | a1 | `l == null` (list traversal in `map`) | pass |
 | map | `l == null` (list traversal in `map`) | pass |
 
-Pointer equality needs an identity comparison on `IORef`. `IORef` has an `Eq` instance, but `CellValue` doesn't derive it yet. Function equality needs either a name comparison or an identity token. `null` comparisons need `Null` to be equal to itself and unequal to any address.
+Pointer equality needs an identity comparison on `IORef`. `CellValue` now derives `Eq` (it was added for scope cleanup), so this only needs an `evalBinOp` case. Function equality needs either a name comparison or an identity token. `null` comparisons need `Null` to be equal to itself and unequal to any address.
 
 ## 3. Reads of uninitialised variables (4)
 
-**Symptom:** various; the value read is the `Null` from [`withVars`](src/TipInterpreter.hs#L192-L193)
+**Symptom:** various; the value read is the `Null` from [`withVars`](src/TipInterpreter.hs#L197-L198)
 
 | File | Read | Error |
 |------|------|-------|
-| available | `a+b`, both never assigned | `no Add defined on Id "a" and Id "b"` |
-| andersen | `a > b`, `b` never assigned | `no GreaterThan defined on Id "a" and Id "b"` |
+| available | `a+b`, both never assigned | `no Add defined on Null and Null` |
+| andersen | `a > b`, `b` never assigned | `no GreaterThan defined on Integer 42 and Null` |
 | steensgaard1 | `if (p)`, `p` never assigned | `invalid condition Null` |
 | steensgaard2 | `*c = f`, `c` not assigned yet | `no Dereference defined for Null` |
 
@@ -102,7 +100,7 @@ These are analysis examples (available expressions, Andersen, Steensgaard) and w
 
 **Files:** cfg (`main(n)`), parametrized_main (`main(x, y)`)
 
-**Cause:** [`evalProgram`](src/TipInterpreter.hs#L205-L213) always calls `main` with `[]`. In TIP, `main`'s parameters are read from the input stream. The input source exists, so this only needs `evalProgram` to read one value per parameter (plus `// INPUT:` lines in both files).
+**Cause:** [`evalProgram`](src/TipInterpreter.hs#L208-L219) always calls `main` with `[]`. In TIP, `main`'s parameters are read from the input stream. The input source exists, so this only needs `evalProgram` to read one value per parameter (plus `// INPUT:` lines in both files).
 
 ## 5. Meant to be rejected by static analysis (6)
 
@@ -110,12 +108,12 @@ The interpreter fails on these at runtime with a sensible error. The programs ar
 
 | File | Static error | Runtime error |
 |------|--------------|---------------|
-| err_assignfunc | assigns to function `f` | `no variable named f in scope` |
-| err_funass | assigns to function `main` | `no variable named main in scope` |
+| err_assignfunc | assigns to function `f` | `cannot assign to FunctionValue Function f` |
+| err_funass | assigns to function `main` | `cannot assign to FunctionValue Function main` |
 | err_funass2 | `&main` | `no AddressOf defined for FunctionValue Function main` |
-| err_notlocal | uses another function's local `n` | `no variable named n in scope` |
+| err_notlocal | uses another function's local `n` | `invalid variable n` |
 | err_notlocal2 | `*f = 10` on a function | `no Dereference defined for FunctionValue Function f` |
-| err_cmpfunc | `f > g` (type error) | `no GreaterThan defined on Id "f" and Id "g"` |
+| err_cmpfunc | `f > g` (type error) | `no GreaterThan defined on FunctionValue Function f and FunctionValue Function g` |
 
 Related files that are counted in other buckets: err_cmpfunc2/3 (2), record6 (1). err_unify1 passes at runtime; its error is purely a type error.
 
@@ -141,9 +139,9 @@ ptr6 is a pointer-analysis example that was never meant to run, so it overlaps w
 
 These fixes clear the most failures:
 
-- **Support `==` on pointers, functions and `null`** in [`evalBinOp`](src/TipInterpreter.hs#L129-L136) (bucket 2, 6 failures).
+- **Support `==` on pointers, functions and `null`** in [`evalBinOp`](src/TipInterpreter.hs#L131-L139) (bucket 2, 6 failures).
 - **Fix `*` / `.` precedence** in [`factorP`](src/Parser/TipParser.hs#L85) (bucket 1, 5 failures).
 - **Expected-error tests:** an `// EXPECT-ERROR: <substring>` directive in [ExamplesSpec.hs](test/ExamplesSpec.hs), next to `XFAIL`, `INPUT` and `CHECK-ONLY`, would let buckets 5 and 6 (9 failures, and arguably bucket 3) become real tests that check the error.
 - **Mark parsing.tip `// CHECK-ONLY`** (bucket 7, 1 failure).
-- **Read `main`'s arguments from input** in [`evalProgram`](src/TipInterpreter.hs#L205-L213) (bucket 4, 2 failures).
+- **Read `main`'s arguments from input** in [`evalProgram`](src/TipInterpreter.hs#L208-L219) (bucket 4, 2 failures).
 - **Swap `CHECK-ONLY` for `// INPUT:`** on the parse-only examples, so that they actually execute.
